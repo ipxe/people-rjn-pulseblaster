@@ -1,0 +1,3 @@
+CONFIG_PULSEBLASTER := m
+
+obj-$(CONFIG_PULSEBLASTER) += pulseblaster.o
