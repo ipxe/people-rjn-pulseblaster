@@ -1,0 +1,109 @@
+#!/usr/bin/perl -w
+#
+# Copyright (C) 2010 Michael Brown <mbrown@fensystems.co.uk>.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+
+=head1 NAME
+
+pbctl - PulseBlaster control
+
+=head1 SYNOPSIS
+
+    pbctl [OPTIONS]
+
+Options:
+
+    -h,--help			Display this message
+    -d,--device=<num|path>	Specify PulseBlaster device
+    -p,--program=<program>	Load PulseBlaster program onto device
+    --start			Start PulseBlaster program on device
+    --stop			Stop PulseBlaster program on device
+    --arm			Arm PulseBlaster program on device
+
+=head1 OPTIONS
+
+=over
+
+=item C<< -d,--device=<num|path> >>
+
+Specify the PulseBlaster device to control.  The device may be
+specified as either a numerical device index or a full path, e.g.
+
+    /sys/class/pulseblaster/pulseblaster0
+
+If no device is explicitly specified, device 0 will be used.
+
+=item C<< -p,--program=<program> >>
+
+Specify a program to be loaded onto the PulseBlaster device.  The
+program must be a precompiled PulseBlaster executable in raw binary
+format.
+
+=item C<< --start >>
+
+Start running the program currently loaded on the PulseBlaster device.
+
+=item C<< --stop >>
+
+Stop running the program currently loaded on the PulseBlaster device.
+
+=item C<< --arm >>
+
+Arm the program currently loaded on the PulseBlaster device.  The
+program will start running when externally triggered.
+
+=back
+
+=cut
+
+use Getopt::Long;
+use Pod::Usage;
+use File::Copy;
+use strict;
+use warnings;
+
+my $device = "0";
+my $program = undef;
+my $actions = [];
+
+my $opts = {
+  "help|h" => sub { pod2usage ( 1 ); },
+  "device|d=s" => sub { $device = $_[1]; },
+  "program|p=s" => sub { $program = $_[1]; },
+  "start" => sub { push @$actions, "start"; },
+  "stop" => sub { push @$actions, "stop"; },
+  "arm" => sub { push @$actions, "arm"; },
+};
+
+Getopt::Long::Configure ( "bundling", "auto_abbrev" );
+GetOptions ( %$opts ) or pod2usage ( "Could not parse command-line options\n" );
+pod2usage ( 1 ) unless $program || @$actions;
+$device = "/sys/class/pulseblaster/pulseblaster".$device if $device =~ /^\d+$/;
+die "Device $device not present\n" unless -d $device;
+
+# Program device, if instructed to do so
+if ( $program ) {
+  my $file = $device."/program";
+  copy ( $program, $file ) or die "Could not program via $file: $!\n";
+}
+
+# Perform any actions, if instructed to do so
+foreach my $action ( @$actions ) {
+  my $file = $device."/".$action;
+  open my $fh, ">", $file or die "Could not open $file: $!\n";
+  syswrite $fh, "1" or die "Could not write to $file: $!\n";
+  close $fh;
+}
