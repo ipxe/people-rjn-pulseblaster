@@ -56,8 +56,8 @@ struct pulseblaster_operations {
 	 * @v data		Data value
 	 * @ret rc		Return status code
 	 */
-	int ( * writeb ) ( struct pulseblaster *pb, unsigned int address,
-			   unsigned int data );
+	int (*writeb)(struct pulseblaster *pb, unsigned int address,
+		      unsigned int data);
 };
 
 /** A Pulseblaster device */
@@ -84,9 +84,9 @@ struct pulseblaster {
  * @v data		Data value
  * @ret rc		Return status code
  */
-static inline int pb_writeb ( struct pulseblaster *pb, unsigned int address,
-			      unsigned int data ) {
-	return pb->op->writeb ( pb, address, data );
+static inline int pb_writeb(struct pulseblaster *pb, unsigned int address,
+			    unsigned int data) {
+	return pb->op->writeb(pb, address, data);
 }
 
 #endif /* _PULSEBLASTER_H */
