@@ -28,36 +28,128 @@
 /** Pulseblaster class */
 static struct class *pb_class;
 
-/** A Pulseblaster device */
-struct pulseblaster {
-	/** I/O port base address */
-	unsigned long iobase;
-	/** Class device */
-	struct device *dev;
-	/** Device access semaphore */
-	struct semaphore sem;
-	/** Programming address counter */
-	loff_t offset;
-};
-
 /** Automatically stop devices on module load */
 static int autostop = 0;
 
+/*****************************************************************************
+ *
+ * Old AMCC bridge protocol
+ *
+ *****************************************************************************
+ *
+ * This protocol is not documented anywhere except in source code form.
+ *
+ */
+
+/** Old AMCC bridge registers */
+enum pulseblaster_old_amcc_register {
+	PB_OLD_AMCC_OUT	= 0x0c,
+	PB_OLD_AMCC_IN	= 0x1c,
+};
+
+/** Maximum number of retry attempts */
+#define PB_OLD_AMCC_MAX_RETRIES 100
+
 /**
- * Send command to device
+ * Write to old AMCC bridge output register
  *
  * @v pb		Pulseblaster device
- * @v command		Command register
+ * @v data		Data value
+ */
+static inline void pb_old_amcc_out ( struct pulseblaster *pb,
+				     unsigned int data ) {
+	outb ( data, ( pb->iobase + PB_OLD_AMCC_OUT ) );
+}
+
+/**
+ * Read from old AMCC bridge input register
+ *
+ * @v pb		Pulseblaster device
+ * @ret data		Data value
+ */
+static inline unsigned int pb_old_amcc_in ( struct pulseblaster *pb ) {
+	return ( inb ( pb->iobase + PB_OLD_AMCC_IN ) );
+}
+
+/**
+ * Wait for device to reach specified state
+ *
+ * @v pb		Pulseblaster device
+ * @v state		Desired state
+ * @ret rc		Return status code
+ */
+static int pb_old_amcc_wait ( struct pulseblaster *pb, unsigned int state ) {
+	uint8_t data;
+	unsigned int retries;
+
+	for ( retries = 0 ; retries <= PB_OLD_AMCC_MAX_RETRIES ; retries++ ) {
+		data = pb_old_amcc_in ( pb );
+		if ( ( data & 0x07 ) == state ) {
+			if ( retries ) {
+				printk ( KERN_INFO "%s: needed %d retries\n",
+					 pb->name, retries );
+			}
+			return 0;
+		}
+		pb_old_amcc_out ( pb, ( data << 4 ) );
+	}
+	printk ( KERN_ERR "%s: bridge stuck waiting for state %d\n",
+		 pb->name, state );
+	return -ETIMEDOUT;
+}
+
+/**
+ * Write byte to device
+ *
+ * @v pb		Pulseblaster device
+ * @v address		Register address
  * @v data		Data value
  * @ret rc		Return status code
  */
-static int pb_cmd ( struct pulseblaster *pb, unsigned int command,
-		    unsigned int data ) {
+static int pb_old_amcc_writeb ( struct pulseblaster *pb, unsigned int address,
+				unsigned int data ) {
+	struct {
+		uint8_t out;
+		uint8_t wait;
+	} seq[4];
+	unsigned int i;
+	int rc;
 
-	printk ( "%s: cmd 0x%02x data 0x%02x\n",
-		 dev_name ( pb->dev ), command, data );
+	/* Check device is idle */
+	if ( ( rc = pb_old_amcc_wait ( pb, 0x07 ) ) != 0 )
+		return rc;
+
+	/* Construct data sequence */
+	seq[0].out = ( 0x30 | ( ( address >> 4 ) & 0x0f ) );
+	seq[0].wait = 0x00;
+	seq[1].out = ( 0x00 | ( ( address >> 0 ) & 0x0f ) );
+	seq[1].wait = 0x01;
+	seq[2].out = ( 0x10 | ( ( data >> 4 ) & 0x0f ) );
+	seq[2].wait = 0x02;
+	seq[3].out = ( 0x20 | ( ( data >> 0 ) & 0x0f ) );
+	seq[3].wait = 0x07;
+
+	/* Write out data */
+	for ( i = 0 ; i < ARRAY_SIZE ( seq ) ; i++ ) {
+		pb_old_amcc_out ( pb, seq[i].out );
+		if ( ( rc = pb_old_amcc_wait ( pb, seq[i].wait ) ) != 0 )
+			return rc;
+	}
+
 	return 0;
 }
+
+/** Old AMCC bridge protocol */
+static struct pulseblaster_operations pb_old_amcc_op = {
+	.writeb	= pb_old_amcc_writeb,
+};
+
+/*****************************************************************************
+ *
+ * Command primitives
+ *
+ *****************************************************************************
+ */
 
 /**
  * Stop program
@@ -66,7 +158,7 @@ static int pb_cmd ( struct pulseblaster *pb, unsigned int command,
  * @ret rc		Return status code
  */
 static inline int pb_cmd_stop ( struct pulseblaster *pb ) {
-	return pb_cmd ( pb, PB_DEVICE_RESET, 0 );
+	return pb_writeb ( pb, PB_DEVICE_RESET, 0 );
 }
 
 /**
@@ -76,7 +168,7 @@ static inline int pb_cmd_stop ( struct pulseblaster *pb ) {
  * @ret rc		Return status code
  */
 static inline int pb_cmd_start ( struct pulseblaster *pb ) {
-	return pb_cmd ( pb, PB_DEVICE_START, 0 );
+	return pb_writeb ( pb, PB_DEVICE_START, 0 );
 }
 
 /**
@@ -88,7 +180,7 @@ static inline int pb_cmd_start ( struct pulseblaster *pb ) {
  */
 static inline int pb_cmd_select_bpw ( struct pulseblaster *pb,
 				      unsigned int bpw ) {
-	return pb_cmd ( pb, PB_SELECT_BPW, bpw );
+	return pb_writeb ( pb, PB_SELECT_BPW, bpw );
 }
 
 /**
@@ -100,7 +192,7 @@ static inline int pb_cmd_select_bpw ( struct pulseblaster *pb,
  */
 static inline int pb_cmd_select_device ( struct pulseblaster *pb,
 					 unsigned int dev ) {
-	return pb_cmd ( pb, PB_SELECT_DEVICE, dev );
+	return pb_writeb ( pb, PB_SELECT_DEVICE, dev );
 }
 
 /**
@@ -110,7 +202,7 @@ static inline int pb_cmd_select_device ( struct pulseblaster *pb,
  * @ret rc		Return status code
  */
 static inline int pb_cmd_clear_address_counter ( struct pulseblaster *pb ) {
-	return pb_cmd ( pb, PB_CLEAR_ADDRESS_COUNTER, 0 );
+	return pb_writeb ( pb, PB_CLEAR_ADDRESS_COUNTER, 0 );
 }
 
 /**
@@ -120,7 +212,7 @@ static inline int pb_cmd_clear_address_counter ( struct pulseblaster *pb ) {
  * @ret rc		Return status code
  */
 static inline int pb_cmd_strobe ( struct pulseblaster *pb ) {
-	return pb_cmd ( pb, PB_FLAG_STROBE, 0 );
+	return pb_writeb ( pb, PB_FLAG_STROBE, 0 );
 }
 
 /**
@@ -132,7 +224,7 @@ static inline int pb_cmd_strobe ( struct pulseblaster *pb ) {
  */
 static inline int pb_cmd_transfer ( struct pulseblaster *pb,
 				    unsigned int data ) {
-	return pb_cmd ( pb, PB_DATA_TRANSFER, data );
+	return pb_writeb ( pb, PB_DATA_TRANSFER, data );
 }
 
 /**
@@ -142,8 +234,15 @@ static inline int pb_cmd_transfer ( struct pulseblaster *pb,
  * @ret rc		Return status code
  */
 static inline int pb_cmd_finished ( struct pulseblaster *pb ) {
-	return pb_cmd ( pb, PB_PROGRAMMING_FINISHED, 0 );
+	return pb_writeb ( pb, PB_PROGRAMMING_FINISHED, 0 );
 }
+
+/*****************************************************************************
+ *
+ * High-level commands
+ *
+ *****************************************************************************
+ */
 
 /**
  * Prepare for programming
@@ -242,9 +341,9 @@ static int pb_program ( struct pulseblaster *pb, char *buf, loff_t off,
 			return rc;
 	}
 	if ( off != pb->offset ) {
-		printk ( "%s: cannot perform out-of-order write to 0x%llx "
-			 "while at 0x%llx\n", dev_name ( pb->dev ),
-			 off, pb->offset );
+		printk ( KERN_ERR "%s: cannot perform out-of-order write to "
+			 "0x%llx while at 0x%llx\n",
+			 pb->name, off, pb->offset );
 		return -ENOTSUPP;
 	}
 	for ( ; len ; len--, buf++, pb->offset++ ) {
@@ -253,6 +352,13 @@ static int pb_program ( struct pulseblaster *pb, char *buf, loff_t off,
 	}
 	return 0;
 }
+
+/*****************************************************************************
+ *
+ * Sysfs attributes
+ *
+ *****************************************************************************
+ */
 
 /**
  * Write to binary attribute
@@ -399,20 +505,48 @@ static ssize_t pb_attr_program ( struct kobject *kobj,
 
 /** Pulseblaster simple attributes */
 static struct device_attribute pb_dev_attrs[] = {
-	__ATTR ( start, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_start ),
-	__ATTR ( stop, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_stop ),
-	__ATTR ( arm, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_arm ),
+	__ATTR ( start, S_IWUSR, NULL, pb_attr_start ),
+	__ATTR ( stop, S_IWUSR, NULL, pb_attr_stop ),
+	__ATTR ( arm, S_IWUSR, NULL, pb_attr_arm ),
 };
 
 /** Pulseblaster program attribute */
 static struct bin_attribute dev_attr_program = {
 	.attr = {
 		.name = "program",
-		.mode = ( S_IWUSR | S_IRUGO ),
+		.mode = S_IWUSR,
 	},
-	.size = 32768 * PB_WORDSIZE,
 	.write = pb_attr_program,
 };
+
+/*****************************************************************************
+ *
+ * Device probe and remove
+ *
+ *****************************************************************************
+ */
+
+/**
+ * Identify device
+ *
+ * @v pb		Pulseblaster device
+ * @v type		Pulseblaster device type
+ * @ret rc		Return status code
+ */
+static int __devinit pb_identify ( struct pulseblaster *pb,
+				   enum pulseblaster_type type ) {
+
+	switch ( type ) {
+	case PB_OLD_AMCC:
+		pb->op = &pb_old_amcc_op;
+		break;
+	default:
+		printk ( KERN_ERR "%s: unknown type %d\n", pb->name, type );
+		return -ENOTSUPP;
+	}
+
+	return 0;
+}
 
 /**
  * Initialise device
@@ -434,6 +568,7 @@ static int __devinit pb_probe ( struct pci_dev *pci,
 		goto err_alloc;
 	}
 	sema_init ( &pb->sem, 1 );
+	snprintf ( pb->name, sizeof ( pb->name ), PB_NAME "%d", pbidx++ );
 
 	/* Enable PCI device */
 	if ( ( rc = pci_enable_device ( pci ) ) != 0 )
@@ -446,14 +581,17 @@ static int __devinit pb_probe ( struct pci_dev *pci,
 	/* Set I/O base address */
 	pb->iobase = pci_resource_start ( pci, 0 );
 
+	/* Identify device */
+	if ( ( rc = pb_identify ( pb, id->driver_data ) ) != 0 )
+		goto err_identify;
+
 	/* Create class device */
-	pb->dev = device_create ( pb_class, &pci->dev, 0, pb,
-				  PB_NAME "%d", pbidx++ );
+	pb->dev = device_create ( pb_class, &pci->dev, 0, pb, pb->name );
 	if ( IS_ERR ( pb->dev ) ) {
 		rc = PTR_ERR ( pb->dev );
 		goto err_device_create;
 	}
-	printk ( "%s: I/O at %04lx\n", dev_name ( pb->dev ), pb->iobase );
+	printk ( KERN_INFO "%s: I/O at %04lx\n", pb->name, pb->iobase );
 
 	/* Create program attribute */
 	if ( ( rc = device_create_bin_file ( pb->dev,
@@ -475,6 +613,7 @@ static int __devinit pb_probe ( struct pci_dev *pci,
  err_device_create_bin_file:
 	device_unregister ( pb->dev );
  err_device_create:
+ err_identify:
 	pci_release_regions ( pci );
  err_request_regions:
 	pci_disable_device ( pci );
@@ -499,9 +638,16 @@ static void __devexit pb_remove ( struct pci_dev *pci ) {
 	kfree ( pb );
 }
 
+/*****************************************************************************
+ *
+ * Driver load and unload
+ *
+ *****************************************************************************
+ */
+
 /** Pulseblaster PCI IDs */
 static struct pci_device_id pb_pci_tbl[] = {
-	{ 0x1217, 0x7130, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ 0x10e8, 0x5920, PCI_ANY_ID, PCI_ANY_ID, 0, 0, PB_OLD_AMCC },
 	{ 0, }
 };
 

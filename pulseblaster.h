@@ -19,8 +19,8 @@
 #ifndef _PULSEBLASTER_H
 #define _PULSEBLASTER_H
 
-/** Pulseblaster command registers */
-enum pulseblaster_command {
+/** Pulseblaster register addresses */
+enum pulseblaster_register {
 	PB_DEVICE_RESET = 0x0,
 	PB_DEVICE_START = 0x1,
 	PB_SELECT_BPW = 0x2,
@@ -35,8 +35,58 @@ enum pulseblaster_command {
 #define PB_WORDSIZE 10
 
 /** Pulseblaster devices */
-enum pulseblaster_devices {
+enum pulseblaster_device {
 	PB_PROGRAM_MEMORY = 0x00,
 };
+
+/** Pulseblaster PCI devices */
+enum pulseblaster_type {
+	PB_OLD_AMCC = 1,
+};
+
+struct pulseblaster;
+
+/** Pulseblaster device operations */
+struct pulseblaster_operations {
+	/**
+	 * Write byte to device
+	 *
+	 * @v pb		Pulseblaster device
+	 * @v address		Register address
+	 * @v data		Data value
+	 * @ret rc		Return status code
+	 */
+	int ( * writeb ) ( struct pulseblaster *pb, unsigned int address,
+			   unsigned int data );
+};
+
+/** A Pulseblaster device */
+struct pulseblaster {
+	/** Device name */
+	char name[16];
+	/** I/O port base address */
+	unsigned long iobase;
+	/** Class device */
+	struct device *dev;
+	/** Device access semaphore */
+	struct semaphore sem;
+	/** Programming address counter */
+	loff_t offset;
+	/** Operations */
+	struct pulseblaster_operations *op;
+};
+
+/**
+ * Write byte to device
+ *
+ * @v pb		Pulseblaster device
+ * @v address		Register address
+ * @v data		Data value
+ * @ret rc		Return status code
+ */
+static inline int pb_writeb ( struct pulseblaster *pb, unsigned int address,
+			      unsigned int data ) {
+	return pb->op->writeb ( pb, address, data );
+}
 
 #endif /* _PULSEBLASTER_H */
