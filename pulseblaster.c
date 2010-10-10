@@ -22,6 +22,9 @@ struct pulseblaster {
 	loff_t offset;
 };
 
+/** Automatically stop devices on module load */
+static int autostop = 0;
+
 /**
  * Send command to device
  *
@@ -141,8 +144,8 @@ static int pb_write_enable ( struct pulseblaster *pb ) {
 		return rc;
 	if ( ( rc = pb_cmd_clear_address_counter ( pb ) ) != 0 )
 		return rc;
-
 	pb->offset = 0;
+
 	return 0;
 }
 
@@ -161,6 +164,7 @@ static int pb_arm ( struct pulseblaster *pb ) {
 	}
 	if ( ( rc = pb_cmd_finished ( pb ) ) != 0 )
 		return rc;
+	pb->offset = 0;
 
 	return 0;
 }
@@ -194,6 +198,7 @@ static int pb_stop ( struct pulseblaster *pb ) {
 	if ( pb->offset != 0 ) {
 		if ( ( rc = pb_cmd_finished ( pb ) ) != 0 )
 			return rc;
+		pb->offset = 0;
 	}
 	if ( ( rc = pb_cmd_stop ( pb ) ) != 0 )
 		return rc;
@@ -430,6 +435,7 @@ static int __devinit pb_probe ( struct pci_dev *pci,
 		rc = PTR_ERR ( pb->dev );
 		goto err_device_create;
 	}
+	printk ( "%s: I/O at %04lx\n", dev_name ( pb->dev ), pb->iobase );
 
 	/* Create program attribute */
 	if ( ( rc = device_create_bin_file ( pb->dev,
@@ -437,10 +443,16 @@ static int __devinit pb_probe ( struct pci_dev *pci,
 		goto err_device_create_bin_file;
 	}
 
-	printk ( "%s: I/O at %04lx\n", dev_name ( pb->dev ), pb->iobase );
+	/* Stop device, if autostop is enabled */
+	if ( autostop ) {
+		if ( ( rc = pb_cmd_stop ( pb ) ) != 0 )
+			goto err_autostop;
+	}
+
 	pci_set_drvdata ( pci, pb );
 	return 0;
 
+ err_autostop:
 	device_remove_bin_file ( pb->dev, &dev_attr_program );
  err_device_create_bin_file:
 	device_unregister ( pb->dev );
@@ -521,8 +533,11 @@ static void __exit pb_module_exit ( void ) {
 	class_destroy ( pb_class );
 }
 
-module_init(pb_module_init);
-module_exit(pb_module_exit);
+module_init ( pb_module_init );
+module_exit ( pb_module_exit );
+
+module_param ( autostop, int, 0 );
+MODULE_PARM_DESC ( autostop, "Automatically stop device on module load" );
 
 MODULE_AUTHOR ( "Michael Brown <mbrown@fensystems.co.uk>" );
 MODULE_DESCRIPTION ( "SpinCore PulseBlaster driver" );
