@@ -2,12 +2,10 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/init.h>
+#include "pulseblaster.h"
 
 /** Pulseblaster driver name */
 #define PB_NAME "pulseblaster"
-
-/** Pulseblaster instruction word size */
-#define PB_WORDSIZE 10
 
 /** Pulseblaster class */
 static struct class *pb_class;
@@ -20,15 +18,236 @@ struct pulseblaster {
 	struct device *dev;
 	/** Device access semaphore */
 	struct semaphore sem;
+	/** Programming address counter */
+	loff_t offset;
 };
 
 /**
- * Program Pulseblaster device
+ * Send command to device
  *
+ * @v pb		Pulseblaster device
+ * @v command		Command register
+ * @v data		Data value
+ * @ret rc		Return status code
  */
-static ssize_t pulseblaster_program ( struct kobject *kobj,
-				      struct bin_attribute *attr,
-				      char *buf, loff_t off, size_t size ) {
+static int pb_cmd ( struct pulseblaster *pb, unsigned int command,
+		    unsigned int data ) {
+
+	printk ( "%s: cmd 0x%02x data 0x%02x\n",
+		 dev_name ( pb->dev ), command, data );
+	return 0;
+}
+
+/**
+ * Stop program
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_stop ( struct pulseblaster *pb ) {
+	return pb_cmd ( pb, PB_DEVICE_RESET, 0 );
+}
+
+/**
+ * Start program
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_start ( struct pulseblaster *pb ) {
+	return pb_cmd ( pb, PB_DEVICE_START, 0 );
+}
+
+/**
+ * Select number of bytes per word
+ *
+ * @v pb		Pulseblaster device
+ * @v bpw		Number of bytes per word
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_select_bpw ( struct pulseblaster *pb,
+				      unsigned int bpw ) {
+	return pb_cmd ( pb, PB_SELECT_BPW, bpw );
+}
+
+/**
+ * Select device to program
+ *
+ * @v pb		Pulseblaster device
+ * @v dev		Device to program
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_select_device ( struct pulseblaster *pb,
+					 unsigned int dev ) {
+	return pb_cmd ( pb, PB_SELECT_DEVICE, dev );
+}
+
+/**
+ * Clear address counter
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_clear_address_counter ( struct pulseblaster *pb ) {
+	return pb_cmd ( pb, PB_CLEAR_ADDRESS_COUNTER, 0 );
+}
+
+/**
+ * Strobe output clock signal
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_strobe ( struct pulseblaster *pb ) {
+	return pb_cmd ( pb, PB_FLAG_STROBE, 0 );
+}
+
+/**
+ * Transfer data
+ *
+ * @v pb		Pulseblaster device
+ * @v data		Data to transfer
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_transfer ( struct pulseblaster *pb,
+				    unsigned int data ) {
+	return pb_cmd ( pb, PB_DATA_TRANSFER, data );
+}
+
+/**
+ * Mark programming as finished
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static inline int pb_cmd_finished ( struct pulseblaster *pb ) {
+	return pb_cmd ( pb, PB_PROGRAMMING_FINISHED, 0 );
+}
+
+/**
+ * Prepare for programming
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static int pb_write_enable ( struct pulseblaster *pb ) {
+	int rc;
+
+	if ( ( rc = pb_cmd_stop ( pb ) ) != 0 )
+		return rc;
+	if ( ( rc = pb_cmd_select_bpw ( pb, PB_WORDSIZE ) ) != 0 )
+		return rc;
+	if ( ( rc = pb_cmd_select_device ( pb, PB_PROGRAM_MEMORY ) ) != 0 )
+		return rc;
+	if ( ( rc = pb_cmd_clear_address_counter ( pb ) ) != 0 )
+		return rc;
+
+	pb->offset = 0;
+	return 0;
+}
+
+/**
+ * Arm program
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static int pb_arm ( struct pulseblaster *pb ) {
+	int rc;
+
+	if ( pb->offset == 0 ) {
+		if ( ( rc = pb_write_enable ( pb ) ) != 0 )
+			return rc;
+	}
+	if ( ( rc = pb_cmd_finished ( pb ) ) != 0 )
+		return rc;
+
+	return 0;
+}
+
+/**
+ * Start program
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static int pb_start ( struct pulseblaster *pb ) {
+	int rc;
+
+	if ( ( rc = pb_arm ( pb ) ) != 0 )
+		return rc;
+	if ( ( rc = pb_cmd_start ( pb ) ) != 0 )
+		return rc;
+
+	return 0;
+}
+
+/**
+ * Stop program
+ *
+ * @v pb		Pulseblaster device
+ * @ret rc		Return status code
+ */
+static int pb_stop ( struct pulseblaster *pb ) {
+	int rc;
+
+	if ( pb->offset != 0 ) {
+		if ( ( rc = pb_cmd_finished ( pb ) ) != 0 )
+			return rc;
+	}
+	if ( ( rc = pb_cmd_stop ( pb ) ) != 0 )
+		return rc;
+
+	return 0;
+}
+
+/**
+ * Program device
+ *
+ * @v pb		Pulseblaster device
+ * @v buf		Data buffer
+ * @v off		Starting offset
+ * @v len		Length of data
+ * @ret rc		Return status code
+ */
+static int pb_program ( struct pulseblaster *pb, char *buf, loff_t off,
+			size_t len ) {
+	int rc;
+
+	if ( off == 0 ) {
+		if ( ( rc = pb_write_enable ( pb ) ) != 0 )
+			return rc;
+	}
+	if ( off != pb->offset ) {
+		printk ( "%s: cannot perform out-of-order write to 0x%llx "
+			 "while at 0x%llx\n", dev_name ( pb->dev ),
+			 off, pb->offset );
+		return -ENOTSUPP;
+	}
+	for ( ; len ; len--, buf++, pb->offset++ ) {
+		if ( ( rc = pb_cmd_transfer ( pb, *buf ) ) != 0 )
+			return rc;
+	}
+	return 0;
+}
+
+/**
+ * Write to binary attribute
+ *
+ * @v kobj		Kernel object
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v off		Starting offset
+ * @v len		Length of data
+ * @v handle		Attribute handler
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_bin ( struct kobject *kobj,
+			     struct bin_attribute *attr,
+			     char *buf, loff_t off, size_t len,
+			     int ( * handle ) ( struct pulseblaster *pb,
+						char *buf, loff_t off,
+						size_t len ) ) {
 	struct device *dev = container_of ( kobj, struct device, kobj );
 	struct pulseblaster *pb = dev_get_drvdata ( dev );
 	int rc;
@@ -37,30 +256,143 @@ static ssize_t pulseblaster_program ( struct kobject *kobj,
 	if ( ( rc = down_interruptible ( &pb->sem ) ) != 0 )
 		goto err_down;
 
-	printk ( "%s: program %#04zx bytes at %#04llx\n",
-		 dev_name ( dev ), size, off );
+	/* Handle attribute */
+	if ( ( rc = handle ( pb, buf, off, len ) ) != 0 )
+		goto err_handle;
 
 	/* Unlock device and return */
 	up ( &pb->sem );
-	return size;
+	return len;
 
+ err_handle:
 	up ( &pb->sem );
  err_down:
 	return rc;
 }
 
-/** Pulseblaster program device attribute */
+/**
+ * Write to button attribute
+ *
+ * @v dev		Device
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v len		Length of data buffer
+ * @v handle		Attribute handler
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_button ( struct device *dev,
+				struct device_attribute *attr,
+				const char *buf, size_t len,
+				int ( * handle ) ( struct pulseblaster *pb ) ){
+	struct pulseblaster *pb = dev_get_drvdata ( dev );
+	unsigned long val;
+	int rc;
+
+	/* Lock device */
+	if ( ( rc = down_interruptible ( &pb->sem ) ) != 0 )
+		goto err_down;
+
+	/* Parse attribute */
+	if ( ( rc = strict_strtoul ( buf, 0, &val ) ) != 0 )
+		goto err_strtoul;
+
+	/* Handle attribute */
+	if ( val != 0 ) {
+		if ( ( rc = handle ( pb ) ) != 0 )
+			goto err_handle;
+	}
+
+	/* Unlock device and return */
+	up ( &pb->sem );
+	return len;
+
+ err_handle:
+ err_strtoul:
+	up ( &pb->sem );
+ err_down:
+	return rc;
+}
+
+/**
+ * Write to start attribute
+ *
+ * @v dev		Device
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v len		Length of data buffer
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_start ( struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t len ) {
+	return pb_attr_button ( dev, attr, buf, len, pb_start );
+}
+
+/**
+ * Write to stop attribute
+ *
+ * @v dev		Device
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v len		Length of data buffer
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_stop ( struct device *dev,
+			      struct device_attribute *attr,
+			      const char *buf, size_t len ) {
+	return pb_attr_button ( dev, attr, buf, len, pb_stop );
+}
+
+/**
+ * Write to arm attribute
+ *
+ * @v dev		Device
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v len		Length of data buffer
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_arm ( struct device *dev,
+			     struct device_attribute *attr,
+			     const char *buf, size_t len ) {
+	return pb_attr_button ( dev, attr, buf, len, pb_arm );
+}
+
+/**
+ * Write to program attribute
+ *
+ * @v kobj		Kernel object
+ * @v attr		Attribute
+ * @v buf		Data buffer
+ * @v off		Starting offset
+ * @v len		Length of data
+ * @ret len		Length written, or negative error
+ */
+static ssize_t pb_attr_program ( struct kobject *kobj,
+				 struct bin_attribute *attr,
+				 char *buf, loff_t off, size_t size ) {
+	return pb_attr_bin ( kobj, attr, buf, off, size, pb_program );
+}
+
+/** Pulseblaster simple attributes */
+static struct device_attribute pb_dev_attrs[] = {
+	__ATTR ( start, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_start ),
+	__ATTR ( stop, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_stop ),
+	__ATTR ( arm, ( S_IWUSR | S_IRUGO ), NULL, pb_attr_arm ),
+};
+
+/** Pulseblaster program attribute */
 static struct bin_attribute dev_attr_program = {
 	.attr = {
 		.name = "program",
 		.mode = ( S_IWUSR | S_IRUGO ),
 	},
 	.size = 32768 * PB_WORDSIZE,
-	.write = pulseblaster_program,
+	.write = pb_attr_program,
 };
 
 /**
- * Initialise Pulseblaster device
+ * Initialise device
  *
  * @v pci		PCI device
  * @v id		PCI device ID
@@ -123,7 +455,7 @@ static int __devinit pb_probe ( struct pci_dev *pci,
 }
 
 /**
- * Remove Pulseblaster device
+ * Remove device
  *
  * @v pci		PCI device
  */
@@ -165,6 +497,7 @@ static int __init pb_module_init ( void ) {
 		rc = PTR_ERR ( pb_class );
 		goto err_class_create;
 	}
+	pb_class->dev_attrs = pb_dev_attrs;
 
 	/* Register PCI driver */
 	if ( ( rc = pci_register_driver ( &pb_pci_driver ) ) != 0 )
