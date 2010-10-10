@@ -51,10 +51,9 @@ struct pulseblaster_operations {
 	/**
 	 * Write byte to device
 	 *
-	 * @v pb		Pulseblaster device
-	 * @v address		Register address
-	 * @v data		Data value
-	 * @ret rc		Return status code
+	 * @pb:			Pulseblaster device
+	 * @address:		Register address
+	 * @data:		Data value
 	 */
 	int (*writeb)(struct pulseblaster *pb, unsigned int address,
 		      unsigned int data);
@@ -79,10 +78,9 @@ struct pulseblaster {
 /**
  * Write byte to device
  *
- * @v pb		Pulseblaster device
- * @v address		Register address
- * @v data		Data value
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @address:		Register address
+ * @data:		Data value
  */
 static inline int pb_writeb(struct pulseblaster *pb, unsigned int address,
 			    unsigned int data) {

@@ -53,8 +53,8 @@ enum pulseblaster_old_amcc_register {
 /**
  * Write to old AMCC bridge output register
  *
- * @v pb		Pulseblaster device
- * @v data		Data value
+ * @pb:			Pulseblaster device
+ * @data:		Data value
  */
 static inline void pb_old_amcc_out(struct pulseblaster *pb, unsigned int data)
 {
@@ -64,8 +64,7 @@ static inline void pb_old_amcc_out(struct pulseblaster *pb, unsigned int data)
 /**
  * Read from old AMCC bridge input register
  *
- * @v pb		Pulseblaster device
- * @ret data		Data value
+ * @pb:			Pulseblaster device
  */
 static inline unsigned int pb_old_amcc_in(struct pulseblaster *pb)
 {
@@ -75,9 +74,8 @@ static inline unsigned int pb_old_amcc_in(struct pulseblaster *pb)
 /**
  * Wait for device to reach specified state
  *
- * @v pb		Pulseblaster device
- * @v state		Desired state
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @state:		Desired state
  */
 static int pb_old_amcc_wait(struct pulseblaster *pb, unsigned int state)
 {
@@ -103,10 +101,9 @@ static int pb_old_amcc_wait(struct pulseblaster *pb, unsigned int state)
 /**
  * Write byte to device
  *
- * @v pb		Pulseblaster device
- * @v address		Register address
- * @v data		Data value
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @address:		Register address
+ * @data:		Data value
  */
 static int pb_old_amcc_writeb(struct pulseblaster *pb, unsigned int address,
 			      unsigned int data)
@@ -159,8 +156,7 @@ static struct pulseblaster_operations pb_old_amcc_op = {
 /**
  * Stop program
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static inline int pb_cmd_stop(struct pulseblaster *pb)
 {
@@ -170,8 +166,7 @@ static inline int pb_cmd_stop(struct pulseblaster *pb)
 /**
  * Start program
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static inline int pb_cmd_start(struct pulseblaster *pb)
 {
@@ -181,9 +176,8 @@ static inline int pb_cmd_start(struct pulseblaster *pb)
 /**
  * Select number of bytes per word
  *
- * @v pb		Pulseblaster device
- * @v bpw		Number of bytes per word
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @bpw:		Number of bytes per word
  */
 static inline int pb_cmd_select_bpw(struct pulseblaster *pb, unsigned int bpw)
 {
@@ -193,9 +187,8 @@ static inline int pb_cmd_select_bpw(struct pulseblaster *pb, unsigned int bpw)
 /**
  * Select device to program
  *
- * @v pb		Pulseblaster device
- * @v dev		Device to program
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @dev:		Device to program
  */
 static inline int pb_cmd_select_device(struct pulseblaster *pb,
 				       unsigned int dev)
@@ -206,8 +199,7 @@ static inline int pb_cmd_select_device(struct pulseblaster *pb,
 /**
  * Clear address counter
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static inline int pb_cmd_clear_address_counter(struct pulseblaster *pb)
 {
@@ -217,8 +209,7 @@ static inline int pb_cmd_clear_address_counter(struct pulseblaster *pb)
 /**
  * Strobe output clock signal
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static inline int pb_cmd_strobe(struct pulseblaster *pb)
 {
@@ -228,9 +219,8 @@ static inline int pb_cmd_strobe(struct pulseblaster *pb)
 /**
  * Transfer data
  *
- * @v pb		Pulseblaster device
- * @v data		Data to transfer
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @data:		Data to transfer
  */
 static inline int pb_cmd_transfer(struct pulseblaster *pb, unsigned int data)
 {
@@ -240,8 +230,7 @@ static inline int pb_cmd_transfer(struct pulseblaster *pb, unsigned int data)
 /**
  * Mark programming as finished
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static inline int pb_cmd_finished(struct pulseblaster *pb)
 {
@@ -258,8 +247,7 @@ static inline int pb_cmd_finished(struct pulseblaster *pb)
 /**
  * Prepare for programming
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static int pb_write_enable(struct pulseblaster *pb)
 {
@@ -285,8 +273,7 @@ static int pb_write_enable(struct pulseblaster *pb)
 /**
  * Arm program
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static int pb_arm(struct pulseblaster *pb)
 {
@@ -308,8 +295,7 @@ static int pb_arm(struct pulseblaster *pb)
 /**
  * Start program
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static int pb_start(struct pulseblaster *pb)
 {
@@ -328,8 +314,7 @@ static int pb_start(struct pulseblaster *pb)
 /**
  * Stop program
  *
- * @v pb		Pulseblaster device
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
  */
 static int pb_stop(struct pulseblaster *pb)
 {
@@ -351,11 +336,10 @@ static int pb_stop(struct pulseblaster *pb)
 /**
  * Program device
  *
- * @v pb		Pulseblaster device
- * @v buf		Data buffer
- * @v off		Starting offset
- * @v len		Length of data
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @buf:		Data buffer
+ * @off:		Starting offset
+ * @len:		Length of data
  */
 static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
 		      size_t len)
@@ -391,13 +375,12 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
 /**
  * Write to binary attribute
  *
- * @v kobj		Kernel object
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v off		Starting offset
- * @v len		Length of data
- * @v handle		Attribute handler
- * @ret len		Length written, or negative error
+ * @kobj:		Kernel object
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @off:		Starting offset
+ * @len:		Length of data
+ * @handle:		Attribute handler
  */
 static ssize_t pb_attr_bin(struct kobject *kobj,
 			   struct bin_attribute *attr,
@@ -433,12 +416,11 @@ static ssize_t pb_attr_bin(struct kobject *kobj,
 /**
  * Write to button attribute
  *
- * @v dev		Device
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v len		Length of data buffer
- * @v handle		Attribute handler
- * @ret len		Length written, or negative error
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @len:		Length of data buffer
+ * @handle:		Attribute handler
  */
 static ssize_t pb_attr_button(struct device *dev,
 			      struct device_attribute *attr,
@@ -480,11 +462,10 @@ static ssize_t pb_attr_button(struct device *dev,
 /**
  * Write to start attribute
  *
- * @v dev		Device
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v len		Length of data buffer
- * @ret len		Length written, or negative error
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @len:		Length of data buffer
  */
 static ssize_t pb_attr_start(struct device *dev,
 			     struct device_attribute *attr,
@@ -496,11 +477,10 @@ static ssize_t pb_attr_start(struct device *dev,
 /**
  * Write to stop attribute
  *
- * @v dev		Device
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v len		Length of data buffer
- * @ret len		Length written, or negative error
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @len:		Length of data buffer
  */
 static ssize_t pb_attr_stop(struct device *dev,
 			    struct device_attribute *attr,
@@ -512,11 +492,10 @@ static ssize_t pb_attr_stop(struct device *dev,
 /**
  * Write to arm attribute
  *
- * @v dev		Device
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v len		Length of data buffer
- * @ret len		Length written, or negative error
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @len:		Length of data buffer
  */
 static ssize_t pb_attr_arm(struct device *dev,
 			   struct device_attribute *attr,
@@ -528,18 +507,17 @@ static ssize_t pb_attr_arm(struct device *dev,
 /**
  * Write to program attribute
  *
- * @v kobj		Kernel object
- * @v attr		Attribute
- * @v buf		Data buffer
- * @v off		Starting offset
- * @v len		Length of data
- * @ret len		Length written, or negative error
+ * @kobj:		Kernel object
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @off:		Starting offset
+ * @len:		Length of data
  */
 static ssize_t pb_attr_program(struct kobject *kobj,
 			       struct bin_attribute *attr,
-			       char *buf, loff_t off, size_t size)
+			       char *buf, loff_t off, size_t len)
 {
-	return pb_attr_bin(kobj, attr, buf, off, size, pb_program);
+	return pb_attr_bin(kobj, attr, buf, off, len, pb_program);
 }
 
 /** Pulseblaster simple attributes */
@@ -568,9 +546,8 @@ static struct bin_attribute dev_attr_program = {
 /**
  * Identify device
  *
- * @v pb		Pulseblaster device
- * @v type		Pulseblaster device type
- * @ret rc		Return status code
+ * @pb:			Pulseblaster device
+ * @type:		Pulseblaster device type
  */
 static int __devinit pb_identify(struct pulseblaster *pb,
 				 enum pulseblaster_type type)
@@ -590,9 +567,8 @@ static int __devinit pb_identify(struct pulseblaster *pb,
 /**
  * Initialise device
  *
- * @v pci		PCI device
- * @v id		PCI device ID
- * @ret rc		Return status code
+ * @pci:		PCI device
+ * @id:			PCI device ID
  */
 static int __devinit pb_probe(struct pci_dev *pci,
 			      const struct pci_device_id *id)
@@ -669,7 +645,7 @@ static int __devinit pb_probe(struct pci_dev *pci,
 /**
  * Remove device
  *
- * @v pci		PCI device
+ * @pci:		PCI device
  */
 static void __devexit pb_remove(struct pci_dev *pci)
 {
@@ -706,7 +682,6 @@ static struct pci_driver pb_pci_driver = {
 /**
  * Initialise Pulseblaster module
  *
- * @ret rc		Return status code
  */
 static int __init pb_module_init(void)
 {
