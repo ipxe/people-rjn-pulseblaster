@@ -389,7 +389,7 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
  * @handle:		Attribute handler
  */
 static ssize_t pb_attr_bin_write(struct kobject *kobj,
-				 struct bin_attribute *attr,
+				 struct bin_attribute *attr __maybe_unused,
 				 char *buf, loff_t off, size_t len,
 				 int (*handle)(struct pulseblaster *pb,
 					       char *buf, loff_t off,
@@ -429,7 +429,8 @@ static ssize_t pb_attr_bin_write(struct kobject *kobj,
  * @handle:		Attribute handler
  */
 static ssize_t pb_attr_button_write(struct device *dev,
-				    struct device_attribute *attr,
+				    struct device_attribute *attr
+					__maybe_unused,
 				    const char *buf, size_t len,
 				    int (*handle)(struct pulseblaster *pb))
 {
@@ -473,7 +474,7 @@ static ssize_t pb_attr_button_write(struct device *dev,
  * @buf:		Data buffer
  */
 static ssize_t pb_attr_type_read(struct device *dev,
-				 struct device_attribute *attr,
+				 struct device_attribute *attr __maybe_unused,
 				 char *buf)
 {
 	struct pulseblaster *pb = dev_get_drvdata(dev);
