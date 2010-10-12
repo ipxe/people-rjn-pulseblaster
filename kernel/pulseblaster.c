@@ -20,6 +20,7 @@
 #include <linux/kernel.h>
 #include <linux/pci.h>
 #include <linux/init.h>
+#include <linux/sched.h>
 #include "pulseblaster.h"
 
 /** Pulseblaster driver name */
@@ -48,7 +49,7 @@ enum pulseblaster_old_amcc_register {
 };
 
 /** Maximum number of retry attempts */
-#define PB_OLD_AMCC_MAX_RETRIES 100
+#define PB_OLD_AMCC_MAX_RETRIES 10
 
 /**
  * Write to old AMCC bridge output register
@@ -86,14 +87,19 @@ static int pb_old_amcc_wait(struct pulseblaster *pb, unsigned int state)
 		data = pb_old_amcc_in(pb);
 		if ((data & 0x07) == state) {
 			if (retries) {
-				printk(KERN_INFO "%s: needed %d retries\n",
-				       pb->name, retries);
+				printk(KERN_INFO "%s: needed %d retries to "
+				       "reach state 0x%02x\n",
+				       pb->name, retries, state);
 			}
 			return 0;
 		}
 		pb_old_amcc_out(pb, (data << 4));
+		msleep_interruptible(1);
+		if (signal_pending(current))
+			return -EINTR;
 	}
-	printk(KERN_ERR "%s: bridge stuck waiting for state %d\n",
+
+	printk(KERN_ERR "%s: bridge stuck waiting for state 0x%02x\n",
 	       pb->name, state);
 	return -ETIMEDOUT;
 }
@@ -141,8 +147,9 @@ static int pb_old_amcc_writeb(struct pulseblaster *pb, unsigned int address,
 	return 0;
 }
 
-/** Old AMCC bridge protocol */
-static struct pulseblaster_operations pb_old_amcc_op = {
+/** Old AMCC bridge type */
+static struct pulseblaster_type pb_old_amcc_type = {
+	.name	= "pbd02pc",
 	.writeb	= pb_old_amcc_writeb,
 };
 
@@ -353,8 +360,7 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
 	}
 	if (off != pb->offset) {
 		printk(KERN_ERR "%s: cannot perform out-of-order write to "
-		       "0x%llx while at 0x%llx\n",
-		       pb->name, off, pb->offset);
+		       "0x%llx while at 0x%llx\n", pb->name, off, pb->offset);
 		return -ENOTSUPP;
 	}
 	for (; len ; len--, buf++, pb->offset++) {
@@ -382,12 +388,12 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
  * @len:		Length of data
  * @handle:		Attribute handler
  */
-static ssize_t pb_attr_bin(struct kobject *kobj,
-			   struct bin_attribute *attr,
-			   char *buf, loff_t off, size_t len,
-			   int (*handle)(struct pulseblaster *pb,
-					 char *buf, loff_t off,
-					 size_t len))
+static ssize_t pb_attr_bin_write(struct kobject *kobj,
+				 struct bin_attribute *attr,
+				 char *buf, loff_t off, size_t len,
+				 int (*handle)(struct pulseblaster *pb,
+					       char *buf, loff_t off,
+					       size_t len))
 {
 	struct device *dev = container_of(kobj, struct device, kobj);
 	struct pulseblaster *pb = dev_get_drvdata(dev);
@@ -422,10 +428,10 @@ static ssize_t pb_attr_bin(struct kobject *kobj,
  * @len:		Length of data buffer
  * @handle:		Attribute handler
  */
-static ssize_t pb_attr_button(struct device *dev,
-			      struct device_attribute *attr,
-			      const char *buf, size_t len,
-			      int (*handle)(struct pulseblaster *pb))
+static ssize_t pb_attr_button_write(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t len,
+				    int (*handle)(struct pulseblaster *pb))
 {
 	struct pulseblaster *pb = dev_get_drvdata(dev);
 	unsigned long val;
@@ -460,6 +466,22 @@ static ssize_t pb_attr_button(struct device *dev,
 }
 
 /**
+ * Read from type attribute
+ *
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ */
+static ssize_t pb_attr_type_read(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct pulseblaster *pb = dev_get_drvdata(dev);
+
+	return sprintf(buf, "%s", pb->type->name);
+}
+
+/**
  * Write to start attribute
  *
  * @dev:		Device
@@ -467,11 +489,11 @@ static ssize_t pb_attr_button(struct device *dev,
  * @buf:		Data buffer
  * @len:		Length of data buffer
  */
-static ssize_t pb_attr_start(struct device *dev,
-			     struct device_attribute *attr,
-			     const char *buf, size_t len)
+static ssize_t pb_attr_start_write(struct device *dev,
+				   struct device_attribute *attr,
+				   const char *buf, size_t len)
 {
-	return pb_attr_button(dev, attr, buf, len, pb_start);
+	return pb_attr_button_write(dev, attr, buf, len, pb_start);
 }
 
 /**
@@ -482,11 +504,11 @@ static ssize_t pb_attr_start(struct device *dev,
  * @buf:		Data buffer
  * @len:		Length of data buffer
  */
-static ssize_t pb_attr_stop(struct device *dev,
-			    struct device_attribute *attr,
-			    const char *buf, size_t len)
+static ssize_t pb_attr_stop_write(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf, size_t len)
 {
-	return pb_attr_button(dev, attr, buf, len, pb_stop);
+	return pb_attr_button_write(dev, attr, buf, len, pb_stop);
 }
 
 /**
@@ -497,11 +519,11 @@ static ssize_t pb_attr_stop(struct device *dev,
  * @buf:		Data buffer
  * @len:		Length of data buffer
  */
-static ssize_t pb_attr_arm(struct device *dev,
-			   struct device_attribute *attr,
-			   const char *buf, size_t len)
+static ssize_t pb_attr_arm_write(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t len)
 {
-	return pb_attr_button(dev, attr, buf, len, pb_arm);
+	return pb_attr_button_write(dev, attr, buf, len, pb_arm);
 }
 
 /**
@@ -513,18 +535,19 @@ static ssize_t pb_attr_arm(struct device *dev,
  * @off:		Starting offset
  * @len:		Length of data
  */
-static ssize_t pb_attr_program(struct kobject *kobj,
-			       struct bin_attribute *attr,
-			       char *buf, loff_t off, size_t len)
+static ssize_t pb_attr_program_write(struct kobject *kobj,
+				     struct bin_attribute *attr,
+				     char *buf, loff_t off, size_t len)
 {
-	return pb_attr_bin(kobj, attr, buf, off, len, pb_program);
+	return pb_attr_bin_write(kobj, attr, buf, off, len, pb_program);
 }
 
 /** Pulseblaster simple attributes */
 static struct device_attribute pb_dev_attrs[] = {
-	__ATTR(start, S_IWUSR, NULL, pb_attr_start),
-	__ATTR(stop, S_IWUSR, NULL, pb_attr_stop),
-	__ATTR(arm, S_IWUSR, NULL, pb_attr_arm),
+	__ATTR(type, S_IRUGO, pb_attr_type_read, NULL),
+	__ATTR(start, S_IWUSR, NULL, pb_attr_start_write),
+	__ATTR(stop, S_IWUSR, NULL, pb_attr_stop_write),
+	__ATTR(arm, S_IWUSR, NULL, pb_attr_arm_write),
 };
 
 /** Pulseblaster program attribute */
@@ -533,7 +556,7 @@ static struct bin_attribute dev_attr_program = {
 		.name = "program",
 		.mode = S_IWUSR,
 	},
-	.write = pb_attr_program,
+	.write = pb_attr_program_write,
 };
 
 /*****************************************************************************
@@ -550,11 +573,11 @@ static struct bin_attribute dev_attr_program = {
  * @type:		Pulseblaster device type
  */
 static int __devinit pb_identify(struct pulseblaster *pb,
-				 enum pulseblaster_type type)
+				 enum pulseblaster_type_key type)
 {
 	switch (type) {
 	case PB_OLD_AMCC:
-		pb->op = &pb_old_amcc_op;
+		pb->type = &pb_old_amcc_type;
 		break;
 	default:
 		printk(KERN_ERR "%s: unknown type %d\n", pb->name, type);
@@ -610,7 +633,7 @@ static int __devinit pb_probe(struct pci_dev *pci,
 		rc = PTR_ERR(pb->dev);
 		goto err_device_create;
 	}
-	printk(KERN_INFO "%s: I/O at %04lx\n", pb->name, pb->iobase);
+	printk(KERN_INFO "%s: I/O at 0x%04lx\n", pb->name, pb->iobase);
 
 	/* Create program attribute */
 	rc = device_create_bin_file(pb->dev, &dev_attr_program);

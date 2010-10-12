@@ -40,14 +40,16 @@ enum pulseblaster_device {
 };
 
 /** Pulseblaster PCI devices */
-enum pulseblaster_type {
-	PB_OLD_AMCC = 1,
+enum pulseblaster_type_key {
+	PB_OLD_AMCC = 0x5920,
 };
 
 struct pulseblaster;
 
 /** Pulseblaster device operations */
-struct pulseblaster_operations {
+struct pulseblaster_type {
+	/** Type name */
+	const char *name;
 	/**
 	 * Write byte to device
 	 *
@@ -65,14 +67,14 @@ struct pulseblaster {
 	char name[16];
 	/** I/O port base address */
 	unsigned long iobase;
+	/** Device type */
+	struct pulseblaster_type *type;
 	/** Class device */
 	struct device *dev;
 	/** Device access semaphore */
 	struct semaphore sem;
 	/** Programming address counter */
 	loff_t offset;
-	/** Operations */
-	struct pulseblaster_operations *op;
 };
 
 /**
@@ -84,7 +86,7 @@ struct pulseblaster {
  */
 static inline int pb_writeb(struct pulseblaster *pb, unsigned int address,
 			    unsigned int data) {
-	return pb->op->writeb(pb, address, data);
+	return pb->type->writeb(pb, address, data);
 }
 
 #endif /* _PULSEBLASTER_H */
