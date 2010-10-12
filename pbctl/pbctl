@@ -97,7 +97,7 @@ die "Device $device not present\n" unless -d $device;
 # Program device, if instructed to do so
 if ( $program ) {
   my $file = $device."/program";
-  copy ( $program, $file ) or die "Could not program via $file: $!\n";
+  copy ( $program, $file ) or die "Could not program $program via $file: $!\n";
 }
 
 # Perform any actions, if instructed to do so
