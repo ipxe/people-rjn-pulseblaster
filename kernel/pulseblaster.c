@@ -479,7 +479,7 @@ static ssize_t pb_attr_type_read(struct device *dev,
 {
 	struct pulseblaster *pb = dev_get_drvdata(dev);
 
-	return sprintf(buf, "%s", pb->type->name);
+	return sprintf(buf, "%s\n", pb->type->name);
 }
 
 /**
