@@ -93,6 +93,8 @@ GetOptions ( %$opts ) or pod2usage ( "Could not parse command-line options\n" );
 pod2usage ( 1 ) unless $program || @$actions;
 $device = "/sys/class/pulseblaster/pulseblaster".$device if $device =~ /^\d+$/;
 die "Device $device not present\n" unless -d $device;
+die "Device $device does not appear to be a PulseBlaster device\n"
+    unless ( readlink $device."/subsystem" || "" ) =~ /\/pulseblaster$/;
 
 # Program device, if instructed to do so
 if ( $program ) {
