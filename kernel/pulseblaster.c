@@ -561,6 +561,53 @@ static struct bin_attribute dev_attr_program = {
 
 /*****************************************************************************
  *
+ * Power management
+ *
+ *****************************************************************************
+ */
+
+/**
+ * Suspend device
+ *
+ * @pci:		PCI device
+ * @state:		Power state
+ */
+static int __maybe_unused pb_suspend(struct pci_dev *pci, pm_message_t state)
+{
+	struct pulseblaster *pb = pci_get_drvdata(pci);
+
+	/* Prepare to suspend PCI device */
+	pci_save_state(pci);
+	pci_disable_device(pci);
+	pci_set_power_state(pci, pci_choose_state(pci, state));
+
+	/* Reset state that will be destroyed by powering off */
+	pb->offset = 0;
+
+	return 0;
+}
+
+/**
+ * Resume device
+ *
+ * @pci:		PCI device
+ */
+static int __maybe_unused pb_resume(struct pci_dev *pci)
+{
+	int rc;
+
+	/* Restore PCI device */
+	pci_set_power_state(pci, PCI_D0);
+	rc = pci_enable_device(pci);
+	if (rc)
+		return rc;
+	pci_restore_state(pci);
+
+	return 0;
+}
+
+/*****************************************************************************
+ *
  * Device probe and remove
  *
  *****************************************************************************
@@ -700,6 +747,10 @@ static struct pci_driver pb_pci_driver = {
 	.id_table	= pb_pci_tbl,
 	.probe		= pb_probe,
 	.remove		= __devexit_p(pb_remove),
+#ifdef CONFIG_PM
+	.suspend	= pb_suspend,
+	.resume		= pb_resume,
+#endif /* CONFIG_PM */
 };
 
 /**
