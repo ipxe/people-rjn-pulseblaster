@@ -300,6 +300,22 @@ static int pb_arm(struct pulseblaster *pb)
 }
 
 /**
+ * Continue program
+ *
+ * @pb:			Pulseblaster device
+ */
+static int pb_continue(struct pulseblaster *pb)
+{
+	int rc;
+
+	rc = pb_cmd_start(pb);
+	if (rc)
+		return rc;
+
+	return 0;
+}
+
+/**
  * Start program
  *
  * @pb:			Pulseblaster device
@@ -528,6 +544,21 @@ static ssize_t pb_attr_arm_write(struct device *dev,
 }
 
 /**
+ * Write to continue attribute
+ *
+ * @dev:		Device
+ * @attr:		Attribute
+ * @buf:		Data buffer
+ * @len:		Length of data buffer
+ */
+static ssize_t pb_attr_continue_write(struct device *dev,
+				 struct device_attribute *attr,
+				 const char *buf, size_t len)
+{
+	return pb_attr_button_write(dev, attr, buf, len, pb_continue);
+}
+
+/**
  * Write to program attribute
  *
  * @kobj:		Kernel object
@@ -549,6 +580,7 @@ static struct device_attribute pb_dev_attrs[] = {
 	__ATTR(start, S_IWUSR, NULL, pb_attr_start_write),
 	__ATTR(stop, S_IWUSR, NULL, pb_attr_stop_write),
 	__ATTR(arm, S_IWUSR, NULL, pb_attr_arm_write),
+	__ATTR(continue, S_IWUSR, NULL, pb_attr_continue_write),
 };
 
 /** Pulseblaster program attribute */
