@@ -3,5 +3,6 @@
 *.mod.c
 *.o
 Module.symvers
+Module.markers
 modules.order
 .tmp_versions
