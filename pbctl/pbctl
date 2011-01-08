@@ -32,6 +32,7 @@ Options:
     --start			Start PulseBlaster program on device
     --stop			Stop PulseBlaster program on device
     --arm			Arm PulseBlaster program on device
+    --continue			Continue PulseBlaster program on device
 
 =head1 OPTIONS
 
@@ -65,6 +66,11 @@ Stop running the program currently loaded on the PulseBlaster device.
 Arm the program currently loaded on the PulseBlaster device.  The
 program will start running when externally triggered.
 
+=item C<< --continue >>
+
+Continue the program after a WAIT. Unlike start, it does not reset
+the PulseBlaster first.
+
 =back
 
 =cut
@@ -86,6 +92,7 @@ my $opts = {
   "start" => sub { push @$actions, "start"; },
   "stop" => sub { push @$actions, "stop"; },
   "arm" => sub { push @$actions, "arm"; },
+  "continue" => sub { push @$actions, "continue"; },
 };
 
 Getopt::Long::Configure ( "bundling", "auto_abbrev" );
