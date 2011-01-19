@@ -1,5 +1,6 @@
 INTRO
 -----
+
 PulseBlaster device driver, /sys interface ( /sys/class/pulseblaster/ ), containing:
 
    program				- write a pulseblaster binary to this
@@ -28,6 +29,9 @@ USERSPACE
 
 Use either pbctl, or pb_utils
 
+You may want to give ownership to the right person:
+  sudo chown username:username /sys/class/pulseblaster/pulseblaster0/{program,arm,start,stop,continue}
+
 
 QUIRKS
 ------
@@ -42,5 +46,7 @@ EXAMPLE
 
 doc/flash.bin is a pulseblaster executable to flash all the outputs at 2Hz
 
-To program it, copy this to /sys/class/pulseblaster/pulseblaster0/program
-Then echo 1 > /sys/class/pulseblaster/pulseblaster0/start
+To program it:
+   cat doc/flash.bin > /sys/class/pulseblaster/pulseblaster0/program
+To start the program:
+    echo 1 > /sys/class/pulseblaster/pulseblaster0/start
