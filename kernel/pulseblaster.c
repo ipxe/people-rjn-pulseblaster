@@ -308,6 +308,12 @@ static int pb_continue(struct pulseblaster *pb)
 {
 	int rc;
 
+        if (pb->offset != 0) {
+                rc = pb_cmd_finished(pb);
+               	if (rc)
+                        return rc;
+                pb->offset = 0;
+       	}
 	rc = pb_cmd_start(pb);
 	if (rc)
 		return rc;
