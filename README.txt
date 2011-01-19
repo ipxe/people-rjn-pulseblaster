@@ -1,21 +1,32 @@
 INTRO
 -----
-PulseBlaster device driver. /sys interface ( /sys/class/pulseblaster/ ), containing:
+PulseBlaster device driver, /sys interface ( /sys/class/pulseblaster/ ), containing:
 
    program				- write a pulseblaster binary to this
    start, stop, arm, continue		- echo "1" to these to make this happen.
 
 
-USERSPACE
----------
-
-pbctl, or pb_utils
-
-
 COMPILE
 -------
 
+cd kernel
 make -C /lib/modules/`uname -r`/build M=`pwd`
+
+
+MODULE
+------
+
+insmod ./pulseblaster.ko 
+rmmod pulseblaster 
+
+Loading the module will create entries within /sys/class/pulseblaster,
+typically /sys/class/pulseblaster/pulseblaster0
+
+
+USERSPACE
+---------
+
+Use either pbctl, or pb_utils
 
 
 QUIRKS
