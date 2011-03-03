@@ -1,0 +1,3 @@
+This is all Free Software, licensed under the GNU GPL. 
+Copyright 2010 - 2011, Michael Brown and Richard Neill.
+License version is "v3 or later", except where specified as "v2"
