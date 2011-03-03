@@ -1,0 +1,23 @@
+.TH "PB_TESTS" "1" "" "" "User Commands"
+.SH "NAME"
+\fBpb_test-flash-2Hz\fR, \fBpb_test-flash-fastest-5.55MHz\fR, \fBpb_test-identify-output\fR
+
+.SH "SYNOPSIS"
+This tests the pulseblaster hardware and driver. 
+
+.SH "COMMANDS"
+.LP 
+\fBpb_test-flash-2Hz\fR
+.IP 
+Flash the LEDs on all 24 channels, simultaneously at 2Hz. Invoke with \fB-h\fR for help.
+.LP 
+\fBpb_test-flash-fastest-5.55MHz\fR
+.IP 
+Flash the LEDs on all 24 channels, simultaneously at 5.5555 MHz (the limit of the hardware). Invoke with \fB-h\fR for help.
+.LP 
+\fBpb_test-identify-output  BIT_N\fR
+.IP 
+Flash one specific bit at 2Hz. Useful for channel identification. Invoke with \fB-h\fR for help.
+
+.SH "SEE ALSO"
+\fBpulseblaster\fR(1), \fBpb_driver-load\fR(1)

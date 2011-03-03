@@ -1,0 +1,23 @@
+.TH "PB_DRIVER-[UN]LOAD" "1" "" "" "User Commands"
+.SH "NAME"
+\fBpb_driver-load\fR, \fBpb_driver-unload\fR
+
+.SH "SYNOPSIS"
+These commands load and unload the pulseblaster driver, granting permissions as necessary.
+
+Note: these should not normally be required: the module should be automatically loaded at boot,
+and the permissions should be granted by pam_console_apply at login. See: /etc/security/console.perms.d/90-pulseblaster.perms
+
+.SH "COMMANDS"
+.LP 
+\fBpb_driver-load\fR
+.IP 
+Load the pulseblaster kernel module, and grant permissions to the logged-in user. May also be invoked with \fB-h\fR to show help.
+
+.LP 
+\fBpb_driver-unload\fR
+.IP 
+Unload the pulseblaster kernel module. May also be invoked with \fB-h\fR to show help.
+
+.SH "SEE ALSO"
+\fBpulseblaster\fR(1), \fBpb_utils\fR(1)
