@@ -1,36 +1,49 @@
+SUMMARY
+-------
+
+In one line:
+	make && sudo make install && pb_test-flash-2Hz
+
+
 INTRO
 -----
 
-PulseBlaster device driver, /sys interface ( /sys/class/pulseblaster/ ), containing:
+This is a PulseBlaster device driver, /sys interface ( /sys/class/pulseblaster/ ), containing:
 
    program				- write a pulseblaster binary to this
    start, stop, arm, continue		- echo "1" to these to make this happen.
 
 
-COMPILE
--------
+TO COMPILE
+----------
 
 cd kernel
 make -C /lib/modules/`uname -r`/build M=`pwd`
 
+(the makefile does this, and installs it)
 
-MODULE
-------
 
-insmod ./pulseblaster.ko 
-rmmod pulseblaster 
+MODULE LOADING
+--------------
+
+insmod ./pulseblaster.ko ;  rmmod pulseblaster 
 
 Loading the module will create entries within /sys/class/pulseblaster,
-typically /sys/class/pulseblaster/pulseblaster0
+  typically /sys/class/pulseblaster/pulseblaster0/*
+
+After running make install, this will happen automatically on reboot, and pam_console_apply 
+will automatically grant permissions the the logged-in user. Or use pb_driver-load.
 
 
 USERSPACE
 ---------
 
-Use either pbctl, or pb_utils
+It's possible to just write directly to the /sys interface. 
 
-You may want to give ownership to the right person:
-  sudo chown username:username /sys/class/pulseblaster/pulseblaster0/{program,arm,start,stop,continue}
+* pbctl and pb_utils provide helpful wrappers. 
+  pb_utils can also assemble .vliw format files.
+
+* pb_test-identify-output is useful for identifying channels.
 
 
 QUIRKS
