@@ -2,6 +2,7 @@ all ::	compile
 
 compile:
 	cd kernel; make -C /lib/modules/`uname -r`/build M=`pwd` ; cd -
+	pod2man pbctl/pbctl -c "User Commands" > man/pbctl.1
 	bzip2 -kf man/pbctl.1
 	bzip2 -kf man/pb_driver-load.1
 	bzip2 -kf man/pb_test-flash-2Hz.1 
