@@ -18,13 +18,13 @@
 
 =head1 NAME
 
-pbctl - PulseBlaster control
+pb_ctl - PulseBlaster control
 
 =head1 SYNOPSIS
 
 PulseBlaster control program: perl script to program and stop/start/arm/continue the PulseBlaster.
 
-pbctl [OPTIONS]
+pb_ctl [OPTIONS]
 
 Options:
 

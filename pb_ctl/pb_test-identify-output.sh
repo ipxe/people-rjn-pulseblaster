@@ -18,7 +18,7 @@ STOP=/sys/class/pulseblaster/pulseblaster0/stop
 
 if [ "$1" == "-h" -o "$1" == "--help" ] ;then
 	echo "Identify pulseblaster outputs. Flash requested line at 2Hz."
-	echo "To verify phase (in case of inversion), the mark:space ratio is 1:3 (0.25s logic 1 : 0.75s logic 0)."
+	echo "To verify phase (in case of inversion), the mark:space ratio is 1:3 (0.125s logic 1 : 0.375s logic 0)."
 	echo "The other lines are always low." 
         echo "Usage: `basename $0` BIT_N"
 	echo "       where BIT_N is 0 .. 23"
@@ -72,6 +72,6 @@ echo 1 > $START
 
 #Say something
 echo "Pulseblaster is now flashing output bit $BIT ($OUT) at 2Hz."
-echo "The mark:space ratio is 1:3 (0.25s logic 1 : 0.75s logic 0). All other lines stay low." 
+echo "The mark:space ratio is 1:3 (0.125s logic 1 : 0.375s logic 0). All other lines stay low." 
 echo "To stop it: 'echo 1 > $STOP'"
 
