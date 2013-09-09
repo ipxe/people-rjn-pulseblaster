@@ -8,9 +8,9 @@ MAN1DIR     = $(MANDIR)/man1
 all ::	compile
 
 compile:
+	[ -d /usr/src/linux-headers-`uname -r` ] || (echo "Error: please install the kernel sources"; exit 1)
 	cd kernel; make -C /lib/modules/`uname -r`/build M=`pwd` ; cd -
-	pod2man pb_ctl/pb_ctl -c "User Commands" > man/pb_ctl.1
-	bzip2 -kf man/pb_ctl.1
+	pod2man pb_ctl/pb_ctl -c "User Commands" | bzip2 > man/pb_ctl.1.bz2
 	bzip2 -kf man/pb_driver-load.1
 	bzip2 -kf man/pb_test-flash-2Hz.1 
 	ln -sf    pb_test-flash-2Hz.1.bz2 man/pb_test-flash-fastest-5.55MHz.1.bz2
@@ -31,18 +31,18 @@ install:
 	modprobe pulseblaster; pam_console_apply
 
 	mkdir -p $(BINDIR) $(MAN1DIR) $(DOCDIR)
-	install  pb_ctl/pb_ctl                           $(BINDIR)
-	install  pb_ctl/pb_driver-load.sh                $(BINDIR)/pb_driver-load
-	install  pb_ctl/pb_driver-unload.sh              $(BINDIR)/pb_driver-unload
-	install  pb_ctl/pb_test-flash-2Hz.sh             $(BINDIR)/pb_test-flash-2Hz
-	install  pb_ctl/pb_test-flash-fastest-5.55MHz.sh $(BINDIR)/pb_test-flash-fastest-5.55MHz
-	install  pb_ctl/pb_test-identify-output.sh       $(BINDIR)/pb_test-identify-output
-	install  README.txt LICENSE.txt doc/*            $(DOCDIR)
-	install  man/*.1.bz2                             $(MAN1DIR)
+	install        pb_ctl/pb_ctl                           $(BINDIR)
+	install        pb_ctl/pb_driver-load.sh                $(BINDIR)/pb_driver-load
+	install        pb_ctl/pb_driver-unload.sh              $(BINDIR)/pb_driver-unload
+	install        pb_ctl/pb_test-flash-2Hz.sh             $(BINDIR)/pb_test-flash-2Hz
+	install        pb_ctl/pb_test-flash-fastest-5.55MHz.sh $(BINDIR)/pb_test-flash-fastest-5.55MHz
+	install        pb_ctl/pb_test-identify-output.sh       $(BINDIR)/pb_test-identify-output
+	install  -m644 README.txt LICENSE.txt doc/*            $(DOCDIR)
+	install  -m644 man/*.1.bz2                             $(MAN1DIR)
 
 clean:
 	rm -f kernel/*.o kernel/*.ko
-	rm -f man/*.bz2 
+	rm -f man/*.bz2 man/*.html
 
 uninstall:
 	@[ `whoami` = root ] || (echo "Error, please be root"; exit 1)
