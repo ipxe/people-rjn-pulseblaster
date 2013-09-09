@@ -8,7 +8,7 @@ MAN1DIR     = $(MANDIR)/man1
 all ::	compile
 
 compile:
-	[ -d /usr/src/linux-headers-`uname -r` ] || (echo "Error: please install the kernel sources"; exit 1)
+	@[ -d /usr/src/*`uname -r` ] || (echo "Error: please install the kernel sources"; exit 1)
 	cd kernel; make -C /lib/modules/`uname -r`/build M=`pwd` ; cd -
 	pod2man pb_ctl/pb_ctl -c "User Commands" | bzip2 > man/pb_ctl.1.bz2
 	bzip2 -kf man/pb_driver-load.1
