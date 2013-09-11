@@ -405,6 +405,7 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
 /**
  * Write to binary attribute
  *
+ * @filp:		File
  * @kobj:		Kernel object
  * @attr:		Attribute
  * @buf:		Data buffer
@@ -412,7 +413,8 @@ static int pb_program(struct pulseblaster *pb, char *buf, loff_t off,
  * @len:		Length of data
  * @handle:		Attribute handler
  */
-static ssize_t pb_attr_bin_write(struct kobject *kobj,
+static ssize_t pb_attr_bin_write(struct file *filp __maybe_unused,
+				 struct kobject *kobj,
 				 struct bin_attribute *attr __maybe_unused,
 				 char *buf, loff_t off, size_t len,
 				 int (*handle)(struct pulseblaster *pb,
@@ -569,17 +571,18 @@ static ssize_t pb_attr_continue_write(struct device *dev,
 /**
  * Write to program attribute
  *
+ * @filp:		File
  * @kobj:		Kernel object
  * @attr:		Attribute
  * @buf:		Data buffer
  * @off:		Starting offset
  * @len:		Length of data
  */
-static ssize_t pb_attr_program_write(struct kobject *kobj,
+static ssize_t pb_attr_program_write(struct file *filp, struct kobject *kobj,
 				     struct bin_attribute *attr,
 				     char *buf, loff_t off, size_t len)
 {
-	return pb_attr_bin_write(kobj, attr, buf, off, len, pb_program);
+	return pb_attr_bin_write(filp, kobj, attr, buf, off, len, pb_program);
 }
 
 /** Pulseblaster simple attributes */
