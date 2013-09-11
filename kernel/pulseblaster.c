@@ -25,6 +25,7 @@
 #include <linux/delay.h>
 #include <linux/semaphore.h>
 #include "pulseblaster.h"
+#include "compat.h"
 
 /** Pulseblaster driver name */
 #define PB_NAME "pulseblaster"
