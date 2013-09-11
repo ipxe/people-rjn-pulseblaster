@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Michael Brown <mbrown@fensystems.co.uk>.
+ * Copyright (C) 2013 Michael Brown <mbrown@fensystems.co.uk>.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
