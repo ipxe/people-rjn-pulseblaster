@@ -663,8 +663,8 @@ static int __maybe_unused pb_resume(struct pci_dev *pci)
  * @pb:			Pulseblaster device
  * @type:		Pulseblaster device type
  */
-static int __devinit pb_identify(struct pulseblaster *pb,
-				 enum pulseblaster_type_key type)
+static int pb_identify(struct pulseblaster *pb,
+		       enum pulseblaster_type_key type)
 {
 	switch (type) {
 	case PB_OLD_AMCC:
@@ -684,8 +684,7 @@ static int __devinit pb_identify(struct pulseblaster *pb,
  * @pci:		PCI device
  * @id:			PCI device ID
  */
-static int __devinit pb_probe(struct pci_dev *pci,
-			      const struct pci_device_id *id)
+static int pb_probe(struct pci_dev *pci, const struct pci_device_id *id)
 {
 	static unsigned int pbidx;
 	struct pulseblaster *pb;
@@ -761,7 +760,7 @@ static int __devinit pb_probe(struct pci_dev *pci,
  *
  * @pci:		PCI device
  */
-static void __devexit pb_remove(struct pci_dev *pci)
+static void pb_remove(struct pci_dev *pci)
 {
 	struct pulseblaster *pb = pci_get_drvdata(pci);
 
@@ -790,7 +789,7 @@ static struct pci_driver pb_pci_driver = {
 	.name		= PB_NAME,
 	.id_table	= pb_pci_tbl,
 	.probe		= pb_probe,
-	.remove		= __devexit_p(pb_remove),
+	.remove		= pb_remove,
 #ifdef CONFIG_PM
 	.suspend	= pb_suspend,
 	.resume		= pb_resume,
