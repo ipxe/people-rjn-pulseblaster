@@ -8,3 +8,14 @@ modules.order
 .tmp_versions
 pb_utils/man/*.bz2
 pb_utils/man/*.html
+pb_utils/src/pb_arm
+pb_utils/src/pb_asm
+pb_utils/src/pb_cont
+pb_utils/src/pb_init
+pb_utils/src/pb_prog
+pb_utils/src/pb_serial_trigger
+pb_utils/src/pb_start
+pb_utils/src/pb_stop
+pb_utils/src/pb_vliw
+pb_utils/src/pb_zero
+
