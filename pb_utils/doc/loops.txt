@@ -1,0 +1,93 @@
+INFORMATION
+-----------
+
+The pulseblaster handles loops counter in a confusing way. After abstraction by the parser, the use of "n"
+is sensible, but the loop instruction is still a source of confusion.
+
+
+ * The code between loop and endloop (inclusive) is executed exactly n times (n > 0)
+ * The LOOP instruction and the END instruction both execute (with outputs and delays) n times.
+ * ENDLOOP jumps back to the loop instruction, NOT the first instruction inside the loop.
+ * (Obviously) it's not possible to entirely skip the loop body with n = 0, unlike in C: "for (i=0;i<0;i++){}"
+
+
+
+Consider the following code:
+
+//OUTPUT	OPCODE		ARG	LEN	//address
+0x1		cont		-	50	//0
+0x2		loop		n	100	//1
+0x3		cont		-	50	//2
+0x4		endloop 	1	200	//3
+0x5		cont		-	50	//4
+
+
+Here is what it does for n = 2:
+
+
+Output 0x1, wait 50.
+
+  Output 0x2, wait 100			//Not already in this loop; push 2 onto the loop stack.
+  Output 0x3, wait 50			//Body of loop
+  Output 0x4, wait 200			//Pop stack => n. Decrement. Not zero. Push n back onto to stack.   [n=1 now] 
+					//Jump back to address of loop start.
+
+  Output 0x2, wait 100			//Already in a loop. Don't push 2 onto the stack.
+  Output 0x3, wait 50			//Body of loop
+  Output 0x4, wait 200			//Pop stack => n. Decrement. Zero. Don't push n back on. 
+
+Output 0x5, wait 50.			//Continue.
+
+
+
+
+HARDWARE
+--------
+
+The actual limitations of the hardware are detailed in pulseblaster.h. In summary these are the important parameters:
+
+PB_LOOP_ARG_MIN  =   1
+	This is the minimum ACTUAL number of loops that the hardware can go through.
+	In other words, the code must pass "straight through" the loop code at least once.
+
+PB_BUG_LOOP_OFFSET = 1
+	This is the value that we must subtract in order to get the number of loops we expect.
+
+Thus, a VLIW instruction "LOOP n", is first checked for n>= PB_LOOP_ARG_MIN, and then PB_BUG_LOOP_OFFSET is subtracted
+from it before it is written to the the pulseblaster itself. The hardware [in pb_write_vliw()] is quite happy to have an
+ARG of Zero, contrary to the implication in the documentation.
+
+
+
+ACTUALLY DOING IT
+-----------------
+
+Compensation for PB_BUG_LOOP_OFFSET is done by pb_prog. (This is in the function pb_write_vliw(), in pb_functions.c)
+This is where the actual subtraction is done.
+
+Checking for PB_LOOP_ARG_MIN is done by pb_parse; this only tests that the counter is legal, but doesn't modify it.
+
+(See also pb_parse: DWIM for zeroloop).
+
+
+POSSIBILITY FOR MISUSE
+----------------------
+
+In normal use, the ENDLOOP must jump back to the address of the corresponding LOOP:
+
+
+      Address           Instruction     Arg
+      
+        n-1             ...             ...
+        n               LOOP            count
+        n+1             ...             ...
+
+        m               ENDLOOP         n  
+
+
+* If Endloop's ARG is too small (eg n-1), then the loop will never exit.
+
+* If Endloop's ARG is slightly too high, (eg n+1), it seems (experimentally) to work just fine, looping 
+as expected, but only doing the output/delay of the LOOP instruction once.
+
+This would seem to be an abuse of the code, but might possibly have some utility: see ../TODO_FUTURE.txt

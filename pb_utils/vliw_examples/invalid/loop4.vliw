@@ -1,0 +1,14 @@
+//Jump back to WRONG place in loop (endloop off by one, jump back before the loop)
+
+//ERROR! This is now trapped by pb_asm. It's definitely an error.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		loop		3	200000000	//bit 7 on. wait 2 sec. Start 3 loops
+0xff00		cont		-	100000000	//bits 15,8 on. wait 1 sec. continue.
+0x0100		endloop		1	200000000	//bit 8 on. wait 2 sec. Endloop or continue. WRONG ADDRESS OF LOOP
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

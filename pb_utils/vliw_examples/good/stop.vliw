@@ -1,0 +1,15 @@
+//Simple example of STOP. Note that to re-trigger, must use pb_start, not pb_cont.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		cont		-	100000000	//bit 7 on.
+-		stop		-	-		//STOP. Note that outputs are not changed from previous value.
+
+//This part is NEVER reached.
+
+0xff00		cont		-	100000000	//bits 15,8 on. wait 1 sec. continue.
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

@@ -1,0 +1,77 @@
+.TH "PB_UTILS" "1" "July 2012" "IR Camera System" "User Commands"
+.SH "NAME"
+\fBpb_utils\fR, comprising: \fBpb_init\fR, \fBpb_zero\fR, \fBpb_asm\fR, \fBpb_prog\fR, \fBpb_start\fR, \fBpb_stop\fR, \fBpb_arm\fR, \fBpb_vliw\fR, \fBpb_check\fR.
+.SH "SYNOPSIS"
+This is the PulseBlaster control interface. These commands stop, start, and program the PulseBlaster. For more details, invoke each one with -h.
+.SH "COMMANDS"
+.LP 
+\fBpb_init \fR[\fIFLAGS\fR]
+.IP 
+Initialise the PulseBlaster outputs to FLAGS.
+Note: this will terminate and overwrite any currently\-loaded program.
+
+.LP 
+\fBpb_zero\fR
+.IP 
+ Initialise the PulseBlaster, setting all outputs to zero. [Same as 'pb_init 0x00']
+ This is useful to prevent parasitic power being supplied by the PulseBlasterto the attached digital circuitry. 
+
+.LP 
+\fBpb_asm \fIFILE.vliw [OUT.bin]\fR
+.IP
+ Assemble the pulse program, FILE.vliw (as documented in doc/vliw.txt) into a PulseBlaster executable OUT.bin.
+ Basic sanity\-checking is performed. 
+
+.LP
+\fBpb_prog \fIFILE.vliw|FILE.bin\fR
+.IP
+ Program the PulseBlaster with the pulse program stated, assembling vliw to bin if necessary.
+ The previous outputs (eg from pb_init) remain until the program starts.
+ The PulseBlaster is left un-armed: it will respond to pb_start, but not HW_Trigger until pb_arm has been run.
+
+.LP 
+\fBpb_start\fR
+.IP 
+ Starts the PulseBlaster executing from the beginning of the program, (whether or not it is armed).
+ [HW_TRIGGER is not\-quite exactly equivalent: the PulseBlaster must be in the "armed" state before it can start.]
+
+.LP 
+\fBpb_stop\fR
+.IP 
+ Stops the pulse program which is currently executing. Leaves the PulseBlaster un-armed.
+ [HW_RESET is different: it stops the PulseBlaster, but leaves it armed.]
+
+.LP 
+\fBpb_arm\fR
+.IP 
+ (Re\-)Arm the PulseBlaster. This is always required before HW_Trigger (except during WAIT)
+
+.LP 
+\fBpb_cont\fR
+.IP 
+ Continue the PulseBlaster. This is the software trigger required during a WAIT.
+
+.LP 
+\fBpb_stop-arm\fR
+.IP 
+ Stop the program, re-arm the PulseBlaster. [Same as 'pb_stop; pb_arm'.]
+
+.LP
+\fBpb_vliw\fR
+.IP
+Print a brief summary of the VLIW instructions.
+
+.LP
+\fBpb_check\fR
+.IP
+Check whether the physical PulseBlaster pci-device is present.
+
+.SH "DOCUMENTATION"
+All commands may be invoked with \fB\-h\fR (or \fB\-\-help\fR) to print their detailed usage.
+
+Also see the doc/ directory (\fI/usr/local/share/doc/pb_utils\fR) which contains the definitive instructions. 
+Refer also to the README.txt there.
+
+.SH "SEE ALSO"
+\fBPulseBlaster\fR(1), \fBpb_ctl\fR(1), \fBpb_parse\fR(1), \fBpbsrc\fR(5), \fBvliw\fR(5), \fBpbsim\fR(5), \fBpb_convey_hwtrigger\fR(1), \fBpb_serial_trigger\fR(1)
+

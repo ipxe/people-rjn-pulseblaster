@@ -1,0 +1,140 @@
+The Pulseblaster may be started and stopped in hardware or in software. 
+
+SUMMARY
+-------
+
+The PulseBlaster has 4 states:
+
+	Uninitialised 	(After power-on) 
+  	Running  	(Started)
+	Stopped	 	(Stopped, not Armed)
+	Armed	 	(Stopped, and Armed)	  	
+  
+The pb_xxx programs all get the pulseblaster into the relevant state, no matter where it was before.
+  
+   pb_stop	Stops the PB, does not arm it.
+   pb_start 	Starts the PB, whether or not it was armed. (If it was running, stop and restart)
+   pb_arm	Arms the PB (If it was running, stop and arm)
+   pb_prog	Programs the PB, and leaves it stopped. (If it was running, stop it).
+   pb_cont	Continues the PB. Useful for WAIT opcode, as it does NOT implicitly reset the PB.
+ 
+   Note:  pb_start === pb_arm; pb_cont
+
+
+The Hardware inputs do:
+
+   hw_trigger	(Falling edge) Start the PB if it's stopped AND armed, or WAITing 
+		* Does nothing if stopped and not armed, or already running. i.e. after a STOP opcode without having ben reset.
+		* See modification below: this is sync'd to the NI4462 which must be clocking RTSI6.
+
+   hw_reset     (Active low)   Stop the PB and leave it armed.
+
+
+The opcodes do:
+   
+   stop		Stop the PB, do NOT arm it. (then requires {hw_reset,hw_trigger}, or pb_start)
+   wait		Stop the PB, leave it waiting (then requires hw_trigger, or pb_cont)
+
+
+
+
+
+
+HARDWARE
+--------
+
+
+These are the Hardware trigger and reset inputs for the pulseblaster (JP100):
+
+HW_TRIGGER (falling edge triggered):
+	- Starts execution of code (from beginning) if PB is quiescent, but armed.  (i.e. after "pb_prog; pb_arm")
+	- Starts execution of code (from beginning) if PB has STOPped AND has then been HW_RESET,
+	- Continues execution of code if PB is WAITing. 
+
+	- This is similar to pb_start, EXCEPT that pb_start does NOT require HW_RESET after a STOP opcode.
+  	- HW_TRIGGER CANNOT restart after a STOP opcode without an intervening HW_RESET. [The documentation asserts otherwise, wrongly.]
+		=> Use WAIT opcode instead, if this is the desired behaviour.
+
+	- Note that if HW_Trigger is held low at the time it is ARMed, this will be interpreted as a falling-edge, and the PB will start. (experimentally verified)
+	- [See below for PB modifications affecting HW_Trigger.]
+
+HW_RESET (active low triggered):
+	- Halts the program and resets it to the beginning. The Pulseblaster is left armed, ready for an HW_TRIGGER or pb_start.
+	- Can be done during execution, or after a WAIT or STOP instruction.
+
+	- This is equivalent to "pb_stop; pb_arm".
+
+	
+Experimentally:
+	- If HW_TRIGGER and HW_RESET are both held low, and HW_RESET is then de-asserted (taken high), this will *sometimes* be interpreted as a trigger. It happens about
+	  50% of the time, at random. (HW_TRIGGER should be taken high before de-asserting reset).  
+          [My workaround (see  hardware-modifications.txt) is to insert a 1us RC circuit in the HW_Trigger line before JP100 so that only short pulses ever reach the PB trigger input.]
+	  
+	- If HW_RESET is asserted (low), then a falling edge on HW_TRIGGER has no effect (ever).
+	  
+
+HARDWARE MODIFICATION
+---------------------
+
+The PB Triggering now goes via a 7474 D-flip-flop. This is so as to synchronise its triggering with the NI4462. 
+See:  hardware-modifications.txt
+
+	
+SERIAL_TRIGGER_ADAPTER
+----------------------
+
+Another way to trigger this is via a simple circuit that drives HW_trigger via an open-collector, driven from a serial-port's RTS line. See pb_serial_trigger(1) for the documentation and code.
+
+	  
+DETAILS
+-------
+	  
+
+Latency and Jitter:
+
+The HW_RESET and HW_TRIGGER inputs are only "sampled" at the internal clock rate of the PB. This means that, in response to the falling edge,
+there is both some fixed latency, and a "random" amount of jitter. The jitter amount is guaranteed to be less than 10 ns (i.e. 1 clock cycle).
+The latency is (documented as) 8 clock-cycles for Start and 6 clock-cycles for continue (during a WAIT). 
+
+
+
+Experimentally:
+
+If an HW_TRIGGER or pb_start is received slightly early (during the previous instruction), it will get processed anyway, rather than being ignored.
+  Consider:
+
+	(a)	---
+		Instruction n-2
+	(b)	---
+		Instruction n-1
+	(c)	---
+	(d)	Instruction n    which is a WAIT		
+	(e)	[Waiting]
+	(f)	[Delay]
+	(g)	---
+		Instruction n+1
+	(h)	---
+		
+
+According to the documentation, once the pulseblaster encounters a WAIT instruction, (at d), it pauses, and then waits (at e) to receive a falling edge	
+on HW_TRIGGER, or a software trigger via pb_start. In fact, if this trigger arrives at any point after (b), i.e. during the *previous* instruction, it will be
+accepted. 
+
+  Trigger arrives at		Result
+  ------------------		------
+
+     before b			is ignored
+     between b,c		is "stored up". When the WAIT is encountered, it immediately re-starts.
+     during e			ends the WAIT, as would be expected.
+     
+   
+  For clarity, I've shown the WAIT instruction in 3 parts: 
+     (d)Encounter the instruction, set outputs, pause;  
+     (e)Paused, waiting for trigger; 
+     (f)delay for LENGTH after the wakeup.
+
+  This behaviour of pre-triggering isn't necessarily a misfeature, it's just a source of some possible confusion.    
+  
+[TODO: Does this pretriggering happen in STOP as well?  (I think not, because of requirment on HWRreset)]
+
+

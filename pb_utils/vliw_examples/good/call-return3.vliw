@@ -1,0 +1,50 @@
+//Example of MISUSE of CALL and RETURN (with nesting).
+//Main program calls First Sub, which calls 2nd sub.
+
+//ERROR: Trying to Return when there is nothing on the stack.
+// Causes rather weird behaviour....
+
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		CALL		6	100000000	//bit 7 on. CALL 1st Sub
+0xff00		cont		-	100000000	//bits 15,8 on. 1 second.
+
+0x0fff		return		-	200000000	//ERROR!! 
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.
+
+
+//First Subroutine:					//Blink bit 1 (5 times quickly, 1 sec total)
+0x01		cont		-	20000000	// ADDR = 5
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		CALL		24	20000000	//Call 2nd Sub
+
+0x01		cont		-	20000000	//Blink bit 1 (4 times fast)
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		cont		-	20000000
+0x01		cont		-	20000000
+0x00		RETURN		-	20000000
+
+
+//Second Subroutine:					//Blink bit 7 (3 times, slightly less fast, 3 sec total)
+0x80		cont		-	100000000	//ADDR = 24
+0x00		cont		-	100000000
+0x80		cont		-	100000000
+0x00		cont		-	100000000
+0x80		cont		-	100000000
+0x00		RETURN		-	100000000
+

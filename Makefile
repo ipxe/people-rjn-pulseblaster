@@ -16,6 +16,7 @@ compile:
 	ln -sf    pb_test-flash-2Hz.1.bz2 man/pb_test-flash-fastest-5.55MHz.1.bz2
 	ln -sf    pb_test-flash-2Hz.1.bz2 man/pb_test-identify-output.1.bz2
 	ln -sf    pb_driver-load.1.bz2    man/pb_driver-unload.1.bz2
+	make -C pb_utils
 
 install:
 	@[ `whoami` = root ] || (echo "Error, please be root"; exit 1)
@@ -40,9 +41,14 @@ install:
 	install  -m644 README.txt LICENSE.txt doc/*            $(DOCDIR)
 	install  -m644 man/*.1.bz2                             $(MAN1DIR)
 
+	make -C pb_utils install
+
+
 clean:
 	rm -f kernel/*.o kernel/*.ko
 	rm -f man/*.bz2 man/*.html
+
+	make -C pb_utils clean
 
 uninstall:
 	@[ `whoami` = root ] || (echo "Error, please be root"; exit 1)
@@ -63,3 +69,5 @@ uninstall:
 	rm -f  $(MAN1DIR)/pb_test-flash-fastest-5.55MHz.1.bz2
 	rm -f  $(MAN1DIR)/pb_test-identify_output.1.bz2
 	rm -rf $(DOCDIR)
+
+	make -C pb_utils uninstall

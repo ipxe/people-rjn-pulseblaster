@@ -1,0 +1,47 @@
+The VLIW format (see vliw.txt) is a simple representation of an ideal pulseblaster. In order to actually program it, 
+we need to convert each VLIW instruction into a sequence of 10 bytes, which are actually written to the device.
+This final stage would generate a .bin file; pb_asm converts VLIW to BIN; pb_prog goes direct from VLIW to the hardware.
+
+This is the process:
+
+(1) Consider the following VLIW instruction:
+
+#OUTPUT         OPCODE  ARG	 LENGTH
+0xffeedd        CALL	0x88776  0xccbbaa99
+
+
+(2) This is read in by pb_prog, tokenised by pb_parse_sourceline() and then merged by pb_make_vliw() in src/pb-functions.inc
+
+  - Opcodes are converted from strings to numbers (as defined in pulseblaster.h)
+		[In the example, CALL = 0x4 ]
+  - If ARG is '-', it is converted to 0.
+  - Offsets are corrected, eg subtraction of PB_INTERNAL_LATENCY.
+		[In this example, length becomes 0xccbbaa96 ]
+  - It is split up into 10 bytes:
+
+(3) The bytes are these:
+
+  3       bytes of output
+  2 1/2   bytes for arg
+  1/2 	  byte  for opcode
+  4 	  bytes for the delay.
+
+
+(4) Thus, we actually get the following series of writes, in this order
+
+  0xff		MSB	}	
+  0xee			} 3 byte output
+  0xdd		LSB	}
+
+  0x88		MSB	} 2 1/2 bytes of arg
+  0x77			}
+  0x64		LSN,OP	} most significant nibble = LSN of ARG,   least significant nibble = opcode
+
+  0xcc		MSB	}
+  0xbb			} 4 byte delay length.
+  0xaa			}
+  0x96		LSB	}
+
+
+(5) For more info, read the source of pb_prog.c. It's quite simple.
+

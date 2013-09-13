@@ -6,3 +6,5 @@ Module.symvers
 Module.markers
 modules.order
 .tmp_versions
+pb_utils/man/*.bz2
+pb_utils/man/*.html

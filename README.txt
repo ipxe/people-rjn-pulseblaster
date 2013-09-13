@@ -41,7 +41,7 @@ USERSPACE
 It's possible to just write directly to the /sys interface. 
 
 * pb_ctl and pb_utils provide helpful wrappers. 
-  pb_utils can also assemble .vliw format files.
+* pb_utils can also assemble .vliw format files.
 
 * pb_test-identify-output is useful for identifying channels.
 

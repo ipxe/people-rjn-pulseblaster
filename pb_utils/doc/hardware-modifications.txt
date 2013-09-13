@@ -1,0 +1,88 @@
+HARDWARE MODIFICATION
+---------------------
+
+I modified the pulseblaster slightly, in order to improve it for our needs.
+The board itself wasn't altered in any permanent way.
+
+See also: pulseblaster-trigger-reset.txt
+
+
+EXTERNAL INPUTS
+---------------
+
+Originally, HW_TRIG and HW_RESET are just exposed on JP100 headers. 
+These are now brought out via a DE9 connector on the rear bracket.
+
+
+SYNCHRONISED CLOCKS
+-------------------
+
+The PulseBlaster's clock is a 100 MHz oscillator in a DIL socket. But we need to ensure that the 100 MHz clock for the NI 4462 and the 100 MHz clock for
+the PulseBlaster are always exactly in sync. The typical +/- 40ppm accuracy of the separate oscillators is not good enough.
+
+Since the PB's oscillator is socketed and the NI's is soldered in, the NI 4462's 100 MHz clock is now exported (via LVDS, twisted pair and a FIN1001). 
+The PB's 100 MHz oscillator is unplugged from the DIL socket, and a small receiver circuit (FIN1002 + buffer) is plugged in there instead. 
+The two systems now share the same clock, without any drift.
+
+
+TRIGGER DELAY
+-------------
+
+The HW trigger must actually be delayed slightly, as a workaround to the jitterinesss of the NI 4462. Since the 4462's trigger input has a jitter of ~ 5 us,
+the NI 4462's (low-freq) sample clock is used to gate the PB's HW_Trigger. This means that HW trigger isn't exactly on time, but that PB programs always start
+at a repeatable instant within the NI 4462's cycle; thus the PB+NI combined programs are repeatable without uncertainty.
+
+SUMMARY: the PulseBlaster responds to the first Rising-Edge on RTSI6 that follows (at least 1us) after a Falling-edge on HW_Trigger (DE9), [provided Reset isn't also asserted.]
+
+A 74VHC74 D-flip-flop is interposed between the External HW trigger and the actual one; it's clocked by the NI 4462 at ~200 kHz. The connections are:
+
+	Gnd	to Ground [via JP100]
+	+3V3    to 3v3 Supply [on PulseBlaster board]
+	nR	to HW_Reset input [on DE9 connector], and to HW_Reset [on PulseBlaster JP100].	
+	nS	to HW_Trig input  [on DE9 connector], with 10k pullup, via 1nF capacitor, and 1k pullup. [R-C-R is a pulse-shortening 1 us monostable]
+	CK      to the NI 4462's RTSI6, with 100k pulldown. [This connector is named "JP77".]
+	D	low.
+	Q	to 7400 NOT gate input, via 1nF capacitor (and 1k pullup), forming another 1 us monostable. 
+
+A 74VHC00 NAND chip is used to buffer the output of the monostable, and to ensure that when HW_Reset goes low, any stored clock-pulse does not get transferred to HWT:
+
+	A1,B1	to 7474's Q, with pullup, via capacitor (see above).
+	Q1	to A2.
+	A2	to Q1
+	B2	to nR, of 7474 above.
+	Q2	to PulseBlaster's HW_Trigger [JP100].	
+
+Note: 74VHC chips run on 3v3, but the inputs are 7V tolerant, so the 5V RTSI6 is fine, as is the brief positive spike from the RC monostable.
+
+This means that:
+        - the PB triggering is always synchronised with a (usually 5us) sample clock of the 4462.
+        - the PB will NOT RESPOND to HW_TRIGGER except when the 4462 is running. Typically the 4462 should be started in "reference trigger" mode, so that
+          the 7474 is receiving a constant stream of clock pulses, even when no acquisition is occurring.
+	  [See also: pb_convey_hwtrigger, which does this. ]
+	- A pending trigger (HWT without CK) will be "stored up", and sent to the PulseBlaster when the 4462 starts... this can be cleared by HW_Reset.
+Also:
+        - HW_Reset will always work (because of the 7474's nR being connected to it, forcing the D-type to reset, even if unclocked).
+        - HW_Trigger can never be held low (because of the RC monostable), preventing artefacts when HWT is low and HWR rises.
+
+
+
+SERIAL PORT ADAPTER
+-------------------
+
+A simple circuit is constructed to interface an RS232 serial port's RTS pin via an open-collector to the HW_trigger input.
+The software is pb_serial_trigger(1). This is useful because, unlike pb_start (pure software trigger), this goes via the trigger-delay 7474.
+
+Circuit design (assembled inside a DE9-F connector). RTS is the trigger; CTS is for readback.
+The pullup to +5V is part of the driven circuit; this is shown for clarity only.
+
+                                                                   ......../\/\/\/\..... +5V
+                                                                   .
+                                                                   .
+                                     RED            +--------------+----------------o  )  BNC
+     RTS -->---+                     LED            c                                  |
+               |------/\/\/\/\-------|>|--------- b    BC109                           |
+     CTS --<---+         2k         a   k           e  NPN                             |
+                                                    |                                  |
+     GND -------------------------------------------+----------------------------------+
+
+

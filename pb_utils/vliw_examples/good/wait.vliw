@@ -1,0 +1,11 @@
+//Simple example of WAIT. Note that to re-trigger, must use pb_cont, not pb_start.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 0 on 1 sec
+
+0x80		wait		-	500000000	//bit 7 on. WAIT. After retrigger, wait 5 seconds
+0xff00		cont		-	100000000	//bits 15,8 on. wait 1 sec. continue.
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

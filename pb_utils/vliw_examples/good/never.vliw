@@ -1,0 +1,15 @@
+//Test of "debug" and "mark" and "never"
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//simple
+
+0x01		debug		-	222		//debug instruction - should raise a notice and become cont.
+
+0x02		mark		-	333		//mark instruction - should be treated as a cont.
+
+0x0f		goto		4	25000000	//jump over the next instruction.
+
+0xff		never		-	555		//never executed
+
+0xffff		goto		0	200000000	//land here,  goto start.

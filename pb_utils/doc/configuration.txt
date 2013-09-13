@@ -1,0 +1,4 @@
+The configuration is in pulseblaster.h. That file is well commented; look there!
+
+pulseblaster.h includes controls for debug, pulseblaster version, and the exit codes.
+

@@ -1,0 +1,7 @@
+A .bin file is a raw pulseblaster-executable. This is compiled by pb_asm, and then
+loaded into the physical pulseblaster by pb_prog (or directly writing it to the pulseblaster
+interface within /sys). 
+
+pb_prog can also skip this step and program a .vliw file.
+
+The format of the .bin file is in raw.txt

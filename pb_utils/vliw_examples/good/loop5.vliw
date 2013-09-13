@@ -1,0 +1,26 @@
+//Nested Loops. (4 deep). Shows a sort of binary-counter/tower of Hanoi.
+
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec. Start of code.
+
+0x0f		loop		8	 25000000	//outer loop. Addr = 1
+
+0xff		loop		4	 25000000	//second. Addr = 2
+
+0xfff		loop		2	 25000000	//third. Addr = 3
+
+0xffff		loop		1	 25000000	//inner. Addr = 4
+0x0fff		endloop		4	 25000000
+
+0x00ff		endloop		3	 25000000
+
+0x000f		endloop		2	 25000000
+
+0x0000		endloop		1	 25000000
+
+
+
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

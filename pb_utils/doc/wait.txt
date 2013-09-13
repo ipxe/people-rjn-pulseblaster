@@ -1,0 +1,24 @@
+INFORMATION
+-----------
+
+The pulseblaster hardware has two restrictions on WAIT opcodes:
+
+ a) WAIT may not be the first instruction.
+ b) If WAIT is the 2nd instruction, the 1st instruction must have a length of at least 11 ticks.
+
+
+HARDWARE
+--------
+
+The actual limitations of the hardware are detailed in pulseblaster.h. These are the important parameters:
+
+PB_BUG_WAIT_NOTFIRST  =  1
+
+PB_BUG_WAIT_MINFIRSTDELAY = 11
+
+
+
+ACTUALLY DOING IT
+-----------------
+
+These checks are both performed, both in pb_write_vliw() and pb_parse.

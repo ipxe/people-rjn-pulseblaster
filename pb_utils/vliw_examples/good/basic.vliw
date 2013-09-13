@@ -1,0 +1,8 @@
+//Very simple program.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0xffffff	goto		0	200000000	//all on, 2 sec. Goto start

@@ -1,0 +1,11 @@
+//Simple example of LONGDELAY. Note that the first LongDelay (with ARG 1) gets transparently demoted to CONT.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		longdelay	1	100000000	//bit 7 on. Short longdelay (demoted)
+0xff00		longdelay	5	100000000	//bits 15,8 on. Longdelay: 5 seconds.
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

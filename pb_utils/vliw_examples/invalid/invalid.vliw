@@ -1,0 +1,48 @@
+//Rejected by pb_asm, because it contains a wrong line.
+//This covers examples of most of the common types of error.
+//In fact, every line (or group of lines) is deliberately wrong; uncommenting any of them should fail.
+
+//NOTE that there are several things we can't check, including:
+// *  Stack depth (call/return), 
+// *  Code that "does what you say, not what you mean"
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+//0x0		cont		-	-10		//Negative value.
+	
+//007		cont		-	10g		//Garbage: "10g" isn't a string. (Also we also ban octal (eg 007) for safety).
+
+//0x0		cont		0	10		//Only WARN here: use of '0', rather than '-'. (Likewise, use of '-' rather than '0').
+
+//0x00		0		cont	0		//opcode in wrong place
+
+//0x00		cont		-			//one parameter missing
+
+//0x00		cont		0	0		//Wrong value of length
+
+//0x00		loop		0	100		//Wrong value of arg: loop arg may not be zero.
+
+//0x00		endloop		7	100		//Unmatched endloop, will take loop-depth < 0.
+
+
+//0x01		loop		1	100		// 1.  1 - 8 are OK 
+//0x02		loop		1	100		// 2. 
+//0x03		loop		1	100		// 3.
+//0x04		loop		1	100		// 4. 
+//0x05		loop		1	100		// 5.
+//0x06		loop		1	100		// 6.
+//0x07		loop		1	100		// 7.
+//0x08		loop		1	100		// 8.
+//0x09		loop		1	100		// 9. 9th one exceeds the loop depth.
+
+//0x00		loop		7	100		//Loops and Endloops must nest correctly.
+//0x01		loop		9	100		//and the Endloop's arg must correspond to
+//0x01		endloop		0	100		//the address of the appropriate loop.
+//0x00		endloop		1	100		//(0 and 1 are the right answers)
+
+//0x80		loop		2	10		//Unmatched loop remaining at end.
+
+//0x00		cont		-	9		//The Opcode before a STOP must
+//-		stop		-	-		// have its LENGTH a little larger than normal.
+
+0xffff		goto		0	200000000	//this one's correct.

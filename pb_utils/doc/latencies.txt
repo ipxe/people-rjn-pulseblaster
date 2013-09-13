@@ -1,0 +1,69 @@
+INFORMATION
+-----------
+
+The PulseBlaster has some inherent latencies (each instruction has a minimum execution time > 1 tick). 
+The parser abstracts these away, therefore, the user need only care that:
+
+	1)All LENGTHs should be specified as they are actually wanted.
+		Example: specify a 100ns pulse, and get 100ns.
+
+	2)If a length is too short for the hardware, the parser will pick it up and throw an error:
+		Example: specify a 50ns pulse, and get an error message:    "Fatal Error: delay length '0x5' is too small..."
+
+	3)For more details, read HARDWARE section, below. But you really don't need to care!
+
+
+HARDWARE
+--------
+
+The actual limitations of the hardware are detailed in pulseblaster.h. In summary these are the important parameters:
+
+PB_INTERNAL_LATENCY  =   3
+	This is the internal latency (in clock cycles) of the PB FPGA controller. It is 3 for all models.
+
+
+PB_MINIMUM_DELAY = 9
+	This is the shortest delay (in clock cycles) actually achievable. 9 for 32k models, 5 for 512 byte models.
+	Calculation of the delay length is complex:
+        	1) Assume the user WANTS a delay of N cycles.
+        	2) This delay is then INCREMENTED by 3 cycles [=PB_INTERNAL_LATENCY], to give an ACTUAL delay of N + 3.
+                3) Furthermore, the minimum ACTUAL delay is 5 or 9 cycles [=PB_MINIMUM_DELAY].
+                4) So, for 32k model, the user must request N-3, where N>=9. This goes in the VLIW instruction
+
+                PBMemory  Min.ACTUALdelay  InternalLatency   Minimum value of Delay_count
+                512             5               3               2
+                32kB            9               3               6
+
+                5) My pb_build_vliw() function takes account of all this: its "length" argument is N.
+
+
+
+PB_WAIT_LATENCY  = 6
+	A WAIT instruction has a 6-cycle latency on WAKEUP. (This is on top of PB_MINIMUM_DELAY)
+
+
+PB_MINIMUM_WAIT_DELAY = 12
+	PB_MINIMUM_WAIT_DELAY is shortest possible wait instruction. I *think* this is correct.
+	See http://www.pulseblaster.com/CD/PulseBlaster/ISA/WAIT_Op_Code_rev1.pdf  *
+        Calculation: PB_MINIMUM_WAIT_DELAY = PB_WAIT_LATENCY+PB_MINIMUM_DELAY-PB_INTERNAL_LATENCY *
+
+
+PB_BUG_PRESTOP_EXTRADELAY = 2
+	This is a hardware bug/misfeature: the instruction which precedes a STOP has a minimum length requirement 1 tick longer
+	than normal. Unless we add this delay, the outputs (from the previous instruction) don't get set. The documentation is wrong!
+	Furthermore, in the special case where STOP is the 2nd instruction (such as occurs in the pb_init flags workaround), we 
+	actually need 2 ticks more. So for safety, we define PB_BUG_PRESTOP_EXTRADELAY to be 2 always.
+
+
+TRIGGER LATENCY = 8
+	Documented that HW Trigger has an 8 cycle latency in responding to trigger. 
+
+
+ACTUALLY DOING IT
+-----------------
+
+Compensation for  PB_INTERNAL_LATENCY and PB_WAIT_LATENCY is done by pb_prog/pb_asm. 
+The function pb_make_vliw(), in pb_functions.c is where the actual subtraction is done.
+
+Checking for PB_MINIMUM_DELAY, PB_MINIMUM_WAIT_DELAY, and PB_BUG_PRESTOP_EXTRADELAY is done by pb_parse.
+We only TEST here that lengths are legal, we don't actually modify them.

@@ -1,0 +1,141 @@
+This describes the PulseBlaster's Instruction set. See also the manual, pulseblaster.h and doc/vliw.txt
+
+
+OPCODES
+=======
+
+These are the (idealised) pulseblaster opcodes, for the user-supplied program. This is what is required by pb_make_vliw().
+I have re-named the opcodes and re-ordered the vliw instructions with respect to Spincore's defintions, because it seems more logical. See also doc/vliw.txt
+Other extensions are done by pb_parse - see pbsrc.txt
+
+
+
+VLIW instruction:
+	OUTPUT	OPCODE	ARG   LENGTH	//comment
+
+This means:
+	Set the outputs. Then do Instruction, taking LENGTH cycles to execute it.
+	(An alternative way to visualise is:  Set outputs. Update stack and program counter. Delay. Then jump to next pc)
+
+Addresses are all zero-based. 
+Arguments and Lengths are compensated: give the value you want, and pb_make_vliw() will calculate what should actually be written to the hardware
+
+
+OUTPUT  is the 24-bit wide signal to output. (Hex, or decimal)
+
+OPCODE  is the (case-insensitive) instruction to perform AFTER the pulseblaster has delayed for LENGTH. It may be any of:
+		CONT, LONGDELAY, LOOP, ENDLOOP, GOTO, CALL, RETURN, WAIT, STOP
+
+LENGTH 	is the length to delay in pulseblaster clock cycles (PB_TICK_NS). It must have a value of at least PB_MINIMUM_DELAY. (WAIT requires more)
+	The .VLIW file should contain the value desired; pb_make_vliw() handles the abstraction/compenstation/check.
+	[Note: see HARDWARE below.]
+
+
+ARG	is the argument taken by some of the opcodes. For those that don't require it, it is ignored; specify it as "-" (or 0).
+ 	ARG has a hexadecimal value upto 20 bits long (the same formats as for OUTPUT. It's used either for a counter, or an address.
+
+
+
+
+DETAILS
+=======
+
+
+OpCode	      	ARG             Function			                       		Notes				Spincore's Name. Value
+------	      	---		--------                                                	-----				----------------------
+
+CONT		-		Set outputs. 							-				CONTINUE
+				Continue to next instruction, taking length cycles						0
+
+
+LONGDELAY	n		Set outputs.							n > 1				LONG_DELAY
+				Continue to next instruction, taking ARG * LEN cycles		(n = 1 => cont)			7
+
+
+LOOP		n		Set outputs.											LOOP 
+				Unless already in this loop, start a loop of ARG counts.	n > 0				2 
+				Continue to next instruction, taking length cycles.		Executed n times.	
+
+
+ENDLOOP		addr		Set outputs. 							addr is matching loop.		ENDLOOP
+				Decrement counter. Either exit the loop or jump-back to 	Executed n times		3
+				address ARG, taking length cycles.				Max nested loops: 8
+
+
+GOTO		addr		Set outputs.							-				BRANCH
+				Jump to instruction at ARG, taking length cycles.						6
+
+
+CALL		addr		Set outputs.							Max stack depth: 8		JSR
+				Call subroutine at ARG, taking length cycles.							4
+	
+
+RETURN		-		Set outputs.							-				RTS
+				Return to the address after the caller, taking length cycles.					5
+
+
+WAIT		-               Set outputs. 							Not first instruction		WAIT
+				Wait for software or hardware trigger. 				If 2nd, 1st length >= 11	8
+				Then proceed, taking length cycles.				Use pb_cont, not start.
+
+
+STOP		-		Ignore outputs. Just Halt. (Length is ignored)			-				STOP
+				Need pb_start, or hw_reset;hw_trigger								1
+
+
+DEBUG		-		For debugging purposes.						-				CONTINUE
+				Interpreted as "CONT", triggers notice.								0
+
+MARK		-		For simulation purposes.					-				CONTINUE
+				Interpreted as "CONT", triggers mark in simulator.						0
+
+NEVER		-		Unreached instruction, embedded by pb_parse			Dead code.			CONTINUE
+				Treated as "CONT". See note.									0
+
+
+
+NOTES
+=====
+
+STOP does not honour the OUTPUT value. The *previous* state is retained.  Output must be 0 or -.   Likewise, the delay has no meaning, and must be 0 or -.
+
+WAIT does its delay *after* wakeup, NOT before "sleep".
+
+Some instructions eg CONT can actually take 1 tick less than the minimum required length, PB_MINIMUM_DELAY. This is experimentally true, but not documented, and this
+set of utilities does NOT support it. But future optimisation *might* be possible.
+
+Execution begins at line 0. Therefore, subroutines must be placed at the end of the address-space (or an initial GOTO should jump over them).
+
+LOOP instructions are a bit unusual - see loops.txt. 
+In particular, for LOOP(n)...ENDLOOP,  the loop's output/length is executed n times; also the endloop's output/length is executed n times.
+
+DEBUG instruction: this is basically syntactic sugar, to allow the programmer to vgrep. It is interpreted as a synonym of "CONT" by pb_asm.
+
+MARK instruction: this allows the simulator to print out a timestamp mark - useful for measuring (in simulation) the exact timestamps for places in complex code. 
+It is interpreted as a synonym of "CONT" by pb_asm.
+
+NEVER instruction: this instruction is one that was identified as "dead code" by pb_parse, (eg by zeroloop), for example code that is skipped over by GOTO.
+It has to remain in the source to keep the address-numbering correct, and pb_asm converts this into a "CONT" opcode so that the pulseblaster's validation
+doesn't choke. But program flow never actually touches this instruction.
+
+
+
+HARDWARE
+========
+
+The opcodes as described above are for the 'idealised' pusleblaster, as supported by the vliw instructions, and by my
+pb_prog program. However, there are some quirks.
+
+1. The pulseblaster has an inherent PB_INTERNAL_LATENCY cycle timing delay. This is dealt with later, by pb_make_vliw().
+
+2. The pulseblaster also has an extra latency for WAITS: PB_WAIT_LATENCY. This is dealt with later, by pb_make_vliw().
+
+3. The instruction which preceedes STOP has a minimum length requirement which is PB_BUG_PRESTOP_EXTRADELAY (i.e. 2 ticks) higher
+   than normal. Otherwise, its outputs don't get applied.
+
+4. In loops, PB_BUG_LOOP_OFFSET (i.e. 1)  must be subtracted from the loop counter. This is dealt with later, by pb_make_vliw().
+
+5. In longdelays, PB_BUG_LONGDELAY_OFFSET (i.e. 2)  must be subtracted from the longdelay arg. This is dealt with later, by pb_make_vliw().
+
+
+See also:  latencies.txt, longdelay.txt and loops.txt

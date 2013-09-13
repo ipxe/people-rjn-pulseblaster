@@ -1,0 +1,22 @@
+//This is a simple .vliw file. (Walking LEDs, in 3s at 2Hz)
+
+//Comments begin with //. Blank lines are ignored.
+//4 columns are required; the comment is optional.
+
+//OUTPUT  (hex) is a 3-byte value for the outputs
+//OPCODE  (string) is one of the 9 allowed opcodes. (Case-insensitive)
+//ARG     (hex) is the argument to the opcode.
+//LENGTH  (hex) is the 4-byte delay value
+
+//Where an opcode ignores ARG, then ARG must be '-' to denote N/A. ('-' is read as 0)
+//For more details, see doc/vliw.txt, or doc/pulseblaster-opcodes.txt
+
+
+//OUTPUT	OPCODE		ARG	LENGTH		//comment
+
+0x249249	CONT		-	16666666     	//Output group 1 of 3 for 0.16 sec
+0x492492	CONT		-	16666666   	//Output group 2 of 3 for 0.16 sec
+0x924924	GOTO		0	16666666	//Output group 3 of 3 for 0.16 sec. Then GOTO start.
+
+
+

@@ -1,0 +1,16 @@
+//Jump back to WRONG place in Loop (EndLoop off by one, jump back into the loop)
+
+//THIS IS NOW CAUGHT by pb_asm with ERROR. 
+//However, it will actually work, and do what one might expect.
+//There is no harm (i.e. no stack abuse), but it's still bad style.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		loop		3	200000000	//bit 7 on. wait 2 sec. Start 3 loops
+0xff00		cont		-	100000000	//bits 15,8 on. wait 1 sec. continue.
+0x0100		endloop		3	200000000	//bit 8 on. wait 2 sec. Endloop or continue. WRONG ADDRESS OF LOOP
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

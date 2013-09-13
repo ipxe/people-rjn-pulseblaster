@@ -1,0 +1,49 @@
+INFORMATION
+-----------
+
+The pulseblaster handles the longdelay in a confusing way (arg is off-by-two). The parser/programmer abstracts this away,
+therefore, the user need only care that:
+	
+        1)Longdelay (LENGTH,ARG) results in a delay of  (length*arg).
+
+        2)Longdelay's ARG must be > 0.  i.e. ARG can never be zero, which would be a stupid thing to do in any case.
+        If this is violated, the parser will emit a fatal error.
+
+
+
+
+HARDWARE
+--------
+
+The actual limitations of the hardware are detailed in pulseblaster.h. In summary these are the important parameters:
+
+PB_LONGDELAY_ARG_MIN  =   2
+	This is the minimum ACTUAL allowed value for the longdelay multiplier.
+
+PB_BUG_LONGDELAY_OFFSET = 2
+	This is the value that we must subtract in order to get the delay that we expect.
+
+Thus, a VLIW instruction "LONGDELAY n", is first checked for n>= PB_LONGDELAY_ARG_MIN, and then PB_BUG_LONGDELAY_OFFSET is subtracted
+from it before it is written to the the pulseblaster itself. The hardware [in pb_write_vliw()] is quite happy to have an 
+ARG of Zero or One, contrary to the implication in the documentation.
+
+In summary:
+  USER-REQUESTED ARG	ARG WRITTEN TO DEVICE		ACTUAL DELAY		COMMENT
+		0		illegal			-			This is obviously daft. Parser throws an error.
+		1		cont -			length			DWIM demotes this to cont.
+		2		0			(length * 2)		The hardware is happy with arg=0
+		3		1			(length * 3)		The hardware is happy with arg=1
+		n		n-1			(length * n)		normal.
+
+
+
+ACTUALLY DOING IT
+-----------------
+
+Compensation for PB_BUG_LONGDELAY_OFFSET is done by pb_prog. (This is in the function pb_write_vliw(), in pb_functions.c)
+This is where the actual subtraction is done.
+
+Checking for PB_LONGDELAY_ARG_MIN is done by pb_parse. We only TEST here that the counter is legal, we don't actually modify it.
+
+In the case where longdelay has arg=1, the parser uses DWIM ("do what I mean") to demote it to a CONT.
+

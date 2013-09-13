@@ -1,0 +1,37 @@
+# pb_prog(1) completion
+#
+have pb_prog &&
+_pb_prog()
+{
+        local cur
+
+        COMPREPLY=()
+        cur=${COMP_WORDS[COMP_CWORD]}
+
+        if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $( compgen -W '-h --help' -- $cur ) )
+        else
+                _filedir '@(vliw|bin)'
+        fi
+} &&
+
+complete -F _pb_prog $filenames pb_prog
+
+# pb_asm(1) completion
+#
+have pb_asm &&
+_pb_asm()
+{
+        local cur
+
+        COMPREPLY=()
+        cur=${COMP_WORDS[COMP_CWORD]}
+
+        if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $( compgen -W '-h --help' -- $cur ) )
+        else
+                _filedir '@(vliw)'
+        fi
+} &&
+
+complete -F _pb_asm $filenames pb_asm

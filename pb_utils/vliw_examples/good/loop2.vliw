@@ -1,0 +1,13 @@
+//Increase the time of loop and endloop. 
+//This shows Both loop and endloop have their delay INSIDE the loop.
+
+//OUTPUT	OPCODE 		ARG	LENGTH		//comment
+
+0x00		cont		-	100000000	//all off 1 sec
+0x01		cont		-	100000000	//bit 1 on 1 sec
+
+0x80		loop		3	500000000	//bit 7 on. wait 5 sec. Start 3 loops
+0xff00		cont		-	100000000	//bits 8/15 on. wait 1 sec.
+0x0100		endloop		2	500000000	//bit 8 on. wait 5 sec. Endloop or continue.
+
+0xffff		goto		0	200000000	//all on 2 sec. goto start.

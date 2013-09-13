@@ -1,0 +1,5 @@
+The exit codes are defined in pulseblaster.h. That file is well commented; look there!
+
+0 is success.
+1 is generic error.
+n is specific error, where n is small and positive.

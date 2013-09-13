@@ -1,0 +1,67 @@
+Things to maybe implement in a future version:
+
+FASTER CONT
+-----------
+
+
+Some instructions eg CONT can actually take 1 tick less than the minimum required length, PB_MINIMUM_DELAY. 
+This is experimentally true, but not documented, and I haven't tested it in detail. 
+It probably also depends on the previous and next opcode too!
+There might be scope to squeeze about 10% more performance out of the pulseblaster by utilising this...
+
+
+MISUSED ENDLOOP
+---------------
+
+It seems experimentally possible to mis-use ENDLOOP by adding an offset to ARG
+
+In normal use, the ENDLOOP must jump back to the address of the corresponding LOOP:
+
+
+      Address		Instruction	Arg
+	
+	n-1		...		...
+	n		LOOP		count
+	n+1		...		...
+
+	m		ENDLOOP		n
+
+
+
+* If Endloop's ARG is too small (eg n-1), then the loop will never exit. 
+
+* If Endloop's ARG is slightly too high, (eg n+1), it seems (experimentally) to work just fine.
+ 
+
+If the instruction at n+1 is a CONT, such a trick is pointless. However, if it's a tight loop, with
+instruction n+1 as (eg Goto), then this might be useful, both to save lines of code and execution speed.
+
+It's also conceptually more like one might expect, in that the Outputs/Delay of the LOOP instruction
+would then only be executed once. 
+
+Would need to test this carefully, including the edge cases, and deeply nested loops.
+
+[Note that pb_make_vliw() now checks for this mismatch as an error, so that would have to be bypassed.]
+
+
+
+EXTRA CONTROL INTERFACES
+------------------------
+
+It would be really useful to implement pb_query, and pb_dump.  The current driver doesn't support these, and it's
+unknown whether the hardware is capable or not. Both of these should operate without interrupting a running
+PulseBlaster program.
+
+pb_query:   discover the state of the PulseBlaster, and return one of:
+		- uninitialised     (not yet programmed, or incompletely programmed)
+                - armed             (ready to start)
+                - running           (running code)
+                - stopped           (ended program, needs re-arm)
+                - waiting           (running, but currently in a WAIT)
+
+
+pb_dump:   dump the currently loaded program back to the PC. This would be useful to discover what
+           program is currently loaded, rather than relying on knowing already. A checksum would also do.
+
+
+pb_wait:   wait till the PulseBlaster stops, then return. (This could also be implemented by polling pb_query).
