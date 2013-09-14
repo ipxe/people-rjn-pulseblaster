@@ -1,0 +1,55 @@
+.TH "PULSEBLASTER" "1" "" "" "User Commands"
+.SH "NAME"
+\fBPulseBlaster overview\fR
+
+.SH "SYNOPSIS"
+This is an overview of the pulseblaster program suite. It comprises a driver, some utilities, and a parser.
+
+.SH "INTRODUCTION"
+The PulseBlaster is a 24-channel fast digital timing card, made by Spincore. It can be programmed with its own VLIW
+language, and then triggered either internally in software, or externally from hardware. 
+
+.SH "HARDWARE"
+This is documented by spincore, also within \fI/usr/local/share/doc/{pb_utils,pb_parse}\fR. In particular, note
+\fIpulseblaster-trigger-reset.txt\fR.
+
+.SH "DRIVER"
+There is a GPL'd kernel driver available for both kernels 2.6 and 2.4. 
+(The 2.4 driver and corresponding pb_utils is now considered obsolete.)
+The programs are \fBpb_driver-load\fR(1) and \fBpb_driver-unload\fR(1).
+See also \fB/sys/class/pulseblaster\fR
+
+.SH "UTILITIES"
+There is a suite of utilites for controlling the pulseblaster. This is \fBpb_utils\fR, comprising: 
+\fBpb_init\fR(1), \fBpb_zero\fR(1), \fBpb_asm\fR(1), \fBpb_prog\fR(1), \fBpb_start\fR(1), \fBpb_stop\fR(1), \fBpb_arm\fR(1) and \fBpb_cont\fR(1).
+
+.SH "PARSER"
+In order to be more human-friendly, there is a parser, which can read the \fB.pbsrc\fR(5) format, ("pulseblaster source") and 
+convert it into a \fB.vliw\fR(5) (very long instruction word) file. The programmer writes a .pbsrc file, then parses it with 
+\fBpb_parse\fR(1) to get a .vliw then programs it into the hardware with \fBpb_prog\fR(1), and then  starts it running 
+using \fBpb_start\fR(1).  (This is a parser, not a compiler, because the .vliw language isn't Turing-complete.) It's also possible
+to use \fBpb_asm\fR to generate a binary file which can be loaded directly into the pulseblaster.
+
+.SH "MICROCODE"
+The internal microcode of the pulseblaster hardware is somewhat "\fBquirky\fR". One might even speak of "undocumented features".
+These are abstracted away by pb_parse/pb_prog, such that the end-user model is ideal. The necessary "\fIcorrections\fR" are 
+documented in \fBpulseblaster.h\fR, and applied by \fBpb_make_vliw()\fR.
+
+.SH "TESTS"
+Some tests have been written to test and verify the hardware, pb_utils, and pb_parse. These are:
+
+* Tests of hardware directly: \fBpb_test-flash-2Hz\fR(1), \fBpb_test-flash-fastest-5.55MHz\fR(1), \fBpb_test-identify-output\fR(1)
+
+* Tests of pb_utils: \fBpb_test-pbinit-counter\fR(1), \fBpb_test-vliw-walk4\fR(1)
+
+* Test of pb_parse: \fBpb_test-pbsrc.walk5\fR(1)
+
+
+.SH "DOCUMENTATION"
+All commands may be invoked with \fB\-h\fR (or \fB\-\-help\fR) to print their detailed usage.
+Also see the doc/ directories (\fI/usr/local/share/doc/{pb_utils,pb_parse}\fR) which contains the definitive instructions. 
+Refer also to the README.txt there.
+
+.SH "SEE ALSO"
+\fBpb_utils\fR(1), \fBpb_parse\fR(1), \fBpb_parport-output\fR(1), \fBhawaiisim\fR(1), \fBpbsrc\fR(5), \fBvliw\fR(5), \fBpbsim\fR(5)
+
