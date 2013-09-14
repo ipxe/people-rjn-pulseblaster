@@ -80,35 +80,32 @@ pb_parse compiles .pbsrc to .vliw   [this is packaged and distributed separately
 UTILITIES
 ---------
 
-
 pb_utils/ comprises:
 	  pb_asm, pb_prog					- assemble and program
 	  pb_stop, pb_start, pb_cont, pb_arm, pb_stop-arm	- stop/start/arm the pulseblaster.
 	  pb_init, pb_zero					- set the pb outputs directly.			
 	  pb_vliw						- generates an example/demo vliw file.
+	  pb_check						- check lspci for the pulseblaster hardware being present.
 	  
-	  , pb_init,  pb_prog, 
+For debugging, use:
+	  pb_test-identify-output.sh				- identify a particular output in the hardware by flashing its bit.
+	  pb_freq_gen.sh					- generate a square wave of a desired frequency on selected bits.
+	  pb_manual						- manually, interactively, control the pulseblaster outputs. This is actually quite useful!
 	  
-	  
-	  make[1]: Leaving directory `/home/rjn/PhD/src/pulseblaster/pb_utils'
-[rjn@chocolate pulseblaster]$ ls pb_utils/src/
-  pb_check.sh*  pb_freq_gen.sh*  pb_functions.c  pb_manual.sh*  pb_serial_trigger.c      pb_utils.bashcompletion  pb_zero.c
-    pb_freq_out.sh*  pb_init.c          pb_serial_trigger_check.sh*  
+
+HARDWARE TWEAKS
+---------------
+
+One way to generate a trigger pulse (on HW_TRIGGER) is a software-controlled hardware trigger. Rather than using pb_start, use an NPN-transistor across the HW_Trigger input.
+The easiest way to interface with this is a DB-9 RS-232 serial port, by creative (mis)-use of the control lines. For a ciruit diagram and interface, see pb_serial_trigger.c
 
 
+DOCUMENTATION
+-------------
 
+see doc/ directory. This describes pb_utils and the pulseblaster itself, as well as the VLIW format. 
 
-
-pb_test-identify-output is useful for channel identification in the hardware.
-
-
-todo: comprises WHAT
-
-diff fre-gen and fre-out
-
-explain hacks
-
-update pb_check for new id.
+Notably,  doc/hardware-modifications.txt describes some aditions we made to the board, for our own purposes: external clock input, and synchronisation with an NI 4462 board.
 
 
 QUIRKS
@@ -117,4 +114,14 @@ QUIRKS
 Because the PulseBlaster is essentially an independent device, merely powered and 
 programmed from the host, a PulseBlaster program will continue to run even when the
 kernel module is removed, or when the host is rebooted!
+
+
+SEE ALSO
+--------
+
+This was written as part of my PhD InfraRed Camera system: http://www.richardneill.org/phd
+There is a GIT tree at: http://git.ipxe.org/people/rjn/pulseblaster.git
+There is also a parser, pb_parse in a parallel project.
+
+
 
