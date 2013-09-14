@@ -54,6 +54,7 @@ manpages:
 	ln -sf  pb_utils.1.bz2  man/pb_check.1.bz2
 	bzip2 -kf man/pb_test-pbinit-counter.1
 	ln -sf  pb_test-pbinit-counter.1.bz2  man/pb_test-vliw-walk4.1.bz2
+	bash man/pb_utils.1.sh
 	bash man/vliw.5.sh
 	bash man/pb_freq_gen.1.sh
 	bash man/pb_manual.1.sh
