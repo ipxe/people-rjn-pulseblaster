@@ -1,0 +1,94 @@
+<!DOCTYPE HTML><html><head><meta charset="utf-8"><link rel="stylesheet" type="text/css" href="../style.css"><title>PulseBlaster Linux Driver and utilities</title></head><body class=program> 
+<!-- IMPORTANT: this webpage is probably generated from a Makefile. Don't edit this; edit the source. -->
+
+<h1>PulseBlaster Linux Driver and utilities</h1>
+
+<h2>Introduction</h2>
+
+<p>The Spincore <a href="http://spincore.com/products/PulseBlaster/PulseBlaster-Programmable-Pulse-Generator.shtml">PulseBlaster</a> is a Programmable TTL Pulse Generator / Digital Word Generator and Timing Engine. We have written
+a GPL Linux driver for it, and some utilities.</p>
+
+<p><b>Linux kernel driver</b>: works under 3.8, and we are currently working to get it accepted upstream. It creates entries in <tt>/sys</tt>, under <tt>/sys/class/PulseBlaster/</tt>, and has a very simple interface:
+to program the device, just cat the binary into the the <tt>program</tt> interface, and to start/stop/arm, just echo a 1 into the <tt>start/stop/arm</tt> interface.</p> 
+
+<p><b>Utilities</b>: pb_utils contains a set of C-programs which can control the PulseBlaster, assemble VLIW files, and are useful for diagnostics, testing and debugging. See below.</p>
+
+<p><b>Parser</b>: pb_parse is a high-level parser for the PulseBlaster. It is distributed as a <a href="../pb_parse/index.html">separate package</a>.
+
+
+<h2>Supported Devices</h2>
+
+<p>This supports the PulseBlaster SP1 PB24-100-32k board, with PCI vendor/device ID of 0x10e8:0x5920.<br>
+The newer SP2 boards have the same vendor id (0x10e8) and device IDs (0x8879 or 0x8852; both being functionally identical).<br>
+[Although we haven't an SP2 board to test with, if the protocol is the same, it will suffice to add the IDs into the <tt>pb_pci_tbl</tt> struct in <tt>PulseBlaster.c</tt>.]<br>
+The kernel module is named <tt>pulseblaster.ko</tt>.</p>
+
+<h2>Installation</h2>
+
+<ul>
+<li>To install, simply: <tt>make && sudo make install</tt>. Then run, for example <tt>pb_freq_gen</tt>
+<li>Consider also installing <a href="../pb_parse/index.html">pb_parse</a>.
+<li>This is Free Software released under the GNU GPL v3+ (except the kernel driver which is v2).  Please feel free to take it, modify it, package it etc.
+<li>Authors: Richard Neill and Michael Brown. Do ask if you would like further information and assistance. 
+</ul>
+
+
+<h2>pb_utils</h2>
+
+<ul>
+<li><tt>pb_asm</tt>, <tt>pb_prog</tt> &nbsp;-&nbsp; assemble a VLIW file into binary and program it into the PulseBlaster. (see also <tt>pb_parse</tt>).
+<li><tt>pb_stop</tt>, <tt>pb_start</tt>, <tt>pb_cont</tt>, <tt>pb_arm</tt>, <tt>pb_stop-arm</tt> &nbsp;-&nbsp; stop/start/arm/continue/stop-and-rearm the PulseBlaster.
+<li><tt>pb_init</tt>, <tt>pb_zero</tt> &nbsp;-&nbsp; directly set the PulseBlaster's outputs.
+<li><tt>pb_vliw</tt> &nbsp;-&nbsp; generates an example/demo VLIW file. (see also <tt>vliw&nbsp;(5)</tt>)
+<li><tt>pb_check</tt> &nbsp;-&nbsp; check <tt>lspci</tt> for the PulseBlaster hardware.
+<li><tt>pb_test-identify-output</tt> &nbsp;-&nbsp; identify a particular hardware output and check phase.
+<li><tt>pb_freq_gen.sh</tt> &nbsp;-&nbsp; generate a square wave of a desired frequency on selected bits.
+<li><tt>pb_manual</tt> &nbsp;-&nbsp; manually, interactively, control the PulseBlaster outputs. Useful for debugging whatever it's connected to.
+</ul> 
+
+
+<h2>VLIW format</h2>
+
+<p>The basic human-readable "assembly" format is <a href="vliw.txt">vliw</a>. This is converted (by <tt>pb_asm</tt>) to a <a href="raw.txt">raw</a> (binary) file, which can be loaded with <tt>pb_prog</tt>.<br>
+(There is also a much higher-level abstraction, <tt>pbsrc</tt>, which is compiled to .vliw.)</p>
+
+<p>These are the details of the PulseBlaster <a href="pulseblaster-opcodes.txt">opcodes</a>. Some specific details are for <a href="loops.txt">loops</a>, <a href="longdelay.txt">long-delay</a>, <a href="wait.txt">wait</a>, and <a href="latencies.txt">latencies</a>.<br>
+<i>Many of the quirks are abstracted away by pb_asm and pb_parse. For example, <tt>loop(n)</tt> may have n=1 and n=0; and <tt>cont</tt> / <tt>longdelay</tt> are implicitly promoted/demoted.</i></p>
+
+<p>Triggering (hardware and software) behaviour is described <a href="pulseblaster-trigger-reset.txt">here</a>.</p>
+
+
+
+<h2>Notes</h2>
+
+<p>The implementation of the PulseBlaster is unusual: it runs pulse programs on an internal FPGA. This means that it will keep running even during a reboot of the host!<br>
+Also, the language is <i>not</i> Turing-complete: this makes it very predictable, but adds certain limitations. pb_parse gets around a few of them.</p>
+
+<p>We also created some custom additions: external clock input and triggering via an RS-232 port: <a href="hardware-modifications.txt">details</a>.</p>
+
+<p>This was originally written as part of my <a href="http://www.richardneill.org/phd">PhD Infrared Camera system</a>. It should be applicable for wider usage.<br>
+<i>Please ignore references to "ircam" (the IR-camera system).</i></p>
+
+
+<h2>Download</h2>
+
+<p><a href="pulseblaster.tgz">PulseBlaster.tgz</a><br>
+<a href="http://git.ipxe.org/people/rjn/pulseblaster.git">GIT repository</a></p>
+
+
+<h2>Documents</h2>
+
+<p>Some selected files, from the tarball:<br>
+ <!-- NB links are correct wrt the www/ directory after 'make www', not necessarily in the source. -->
+<a href="README.txt">README.txt</a><br>
+<a href="vliw.5.html">vliw.5.html</a><br>
+<a href="pb_utils.1.html">pb_utils.1</a><br>
+<a href="pb_freq_gen.1.html">pb_freq_gen.1</a><br>
+<a href="pb_manual.1.html">pb_manual.1</a><br>
+</p>
+
+
+<h2>Navigation</h2> 
+<p>Return to <a href="../">all programs</a>, <a href="/">site home</a>.</p>
+
+</body></html>

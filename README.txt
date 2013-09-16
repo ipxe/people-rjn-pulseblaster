@@ -20,10 +20,21 @@ pb_utils/
 See also pb_parse: a higher-level parser/compiler, distributed separately.
 
 
+SUPPORTED DEVICES
+-----------------
+
+This supports the PulseBlaster SP1 PB24-100-32k board, with PCI vendor/device id:  0x10e8:0x5920.
+
+The newer SP2 boards have the same vendor id (0x10e8) and device IDs of (0x8879 or 0x8852)  - both being functionally identical
+It is probably sufficient to add them to pulseblaster.c -> pb_pci_tbl and the driver will then work, if the protocol is the same.
+
+
 TO COMPILE
 ----------
 
 make && sudo make install
+
+[Aside: it's possible to build pb_utils to work in dummy mode without a real pulseblaster: #define HAVE_PB 0]
 
 
 MODULE LOADING
@@ -60,11 +71,11 @@ FILE TYPES
 
 .vliw
 	Very long instruction word file, like assembler. It's human-readable, and possible to write this directly.
-	Eg pb_utils/vliw_examples/good/flash_leds_2Hz.vliw
+	Eg pb_utils/vliw_examples/good/flash_leds_2Hz.vliw  or pb_freq_gen.sh
 
 .bin
 	Binary file, ready to load into the pulseblaster.
-	E.g doc/flash.bin
+	E.g doc/flash.bin,  see also pb_test-identify-output.sh
 
 
 TOOLS
@@ -122,6 +133,4 @@ SEE ALSO
 This was written as part of my PhD InfraRed Camera system: http://www.richardneill.org/phd
 There is a GIT tree at: http://git.ipxe.org/people/rjn/pulseblaster.git
 There is also a parser, pb_parse in a parallel project.
-
-
 
