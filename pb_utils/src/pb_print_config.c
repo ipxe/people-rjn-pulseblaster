@@ -24,6 +24,7 @@ int main(int argc, char *argv[] __attribute__ ((unused)) ){
 		"PB_MEMORY: %d\n"
 		"PB_LOOP_MAXDEPTH: %d\n"
 		"PB_SUB_MAXDEPTH: %d\n"
+		"PB_INTERNAL_LATENCY: %d\n"
 		"PB_MINIMUM_DELAY: %d\n"
 		"PB_WAIT_LATENCY: %d\n"
 		"PB_MINIMUM_WAIT_DELAY: %d\n"
@@ -46,6 +47,7 @@ int main(int argc, char *argv[] __attribute__ ((unused)) ){
 		PB_MEMORY,
 		PB_LOOP_MAXDEPTH,
 		PB_SUB_MAXDEPTH,
+		PB_INTERNAL_LATENCY,
 		PB_MINIMUM_DELAY,
 		PB_WAIT_LATENCY,
 		PB_MINIMUM_WAIT_DELAY,
