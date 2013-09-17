@@ -1,4 +1,4 @@
-/* This is pbulseblaster.h the definitions by pb_functions.c etc. See also the manual.	*
+/* This is pulseblaster.h the definitions by pb_functions.c etc. See also the manual.		*
  * NOTE: this header is parsed by pb_parse (PHP) as well as by the C-preprocessor. 		*
  * Please don't try anything too clever, such as: 						*
  *     #define PB_MINIMUM_WAIT_DELAY (PB_WAIT_LATENCY+PB_MINIMUM_DELAY-PB_INTERNAL_LATENCY)	*
