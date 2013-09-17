@@ -57,6 +57,12 @@ src/
 			
 		pb_check
 			Check whether the PulseBlaster is physically installed. (checks `lspci`). pb_driver-load may still be needed.
+			
+		pb_vliw	
+			Print an example VLIW file. (Useful as a template)
+			
+		pb_print_config
+			print the configuration (a simple bridge between pulseblaster.h and pb_parse.php)
 
 
 	Helper programs:

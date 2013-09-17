@@ -12,6 +12,7 @@ pb_utils/src/pb_arm
 pb_utils/src/pb_asm
 pb_utils/src/pb_cont
 pb_utils/src/pb_init
+pb_utils/src/pb_print_config
 pb_utils/src/pb_prog
 pb_utils/src/pb_serial_trigger
 pb_utils/src/pb_start

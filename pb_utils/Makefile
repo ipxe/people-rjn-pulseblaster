@@ -23,6 +23,7 @@ pbutils:
 	$(CC) $(CFLAGS) -o src/pb_asm      src/pb_asm.c
 	$(CC) $(CFLAGS) -o src/pb_vliw     src/pb_vliw.c
 	$(CC) $(CFLAGS) -o src/pb_stop-arm src/pb_stop-arm.c
+	$(CC) $(CFLAGS) -o src/pb_print_config src/pb_print_config.c
 	$(CC) $(CFLAGS) -o src/pb_serial_trigger  src/pb_serial_trigger.c
 
 	strip src/pb_start
@@ -35,6 +36,7 @@ pbutils:
 	strip src/pb_asm
 	strip src/pb_vliw
 	strip src/pb_stop-arm
+	strip src/pb_print_config
 	strip src/pb_serial_trigger
 
 	@grep -Eq '#define\s*HAVE_PB\s*1' src/pulseblaster.h || echo "Warning: Built with #define HAVE_PB 0."
@@ -51,6 +53,7 @@ manpages:
 	ln -sf  pb_utils.1.bz2  man/pb_prog.1.bz2
 	ln -sf  pb_utils.1.bz2  man/pb_asm.1.bz2
 	ln -sf  pb_utils.1.bz2  man/pb_vliw.1.bz2
+	ln -sf  pb_utils.1.bz2  man/pb_print_config.1.bz2
 	ln -sf  pb_utils.1.bz2  man/pb_check.1.bz2
 	bzip2 -kf man/pb_test-pbinit-counter.1
 	ln -sf  pb_test-pbinit-counter.1.bz2  man/pb_test-vliw-walk4.1.bz2
@@ -83,6 +86,7 @@ clean:
 	rm -f src/pb_prog
 	rm -f src/pb_asm
 	rm -f src/pb_vliw
+	rm -f src/pb_print_config
 	rm -f src/pb_serial_trigger
 	rm -f vliw_examples/good/*.bin*
 	rm -f vliw_examples/invalid/*.bin*
@@ -102,6 +106,7 @@ install:
 	install        src/pb_prog                $(BINDIR)
 	install        src/pb_asm                 $(BINDIR)
 	install        src/pb_vliw                $(BINDIR)
+	install        src/pb_print_config        $(BINDIR)
 	install        src/pb_check.sh            $(BINDIR)/pb_check
 	install        src/pb_freq_gen.sh         $(BINDIR)/pb_freq_gen
 	install        src/pb_manual.sh           $(BINDIR)/pb_manual
@@ -137,6 +142,7 @@ uninstall:
 	rm -f $(BINDIR)/pb_prog 
 	rm -f $(BINDIR)/pb_asm 
 	rm -f $(BINDIR)/pb_vliw
+	rm -f $(BINDIR)/pb_print_config
 	rm -f $(BINDIR)/pb_check
 	rm -f $(BINDIR)/pb_serial_trigger
 	rm -f $(BINDIR)/pb_serial_trigger_check
@@ -161,6 +167,7 @@ uninstall:
 	rm -f $(MAN1DIR)/pb_prog.1.bz2
 	rm -f $(MAN1DIR)/pb_asm.1.bz2
 	rm -f $(MAN1DIR)/pb_vliw.1.bz2
+	rm -f $(MAN1DIR)/pb_print_config.1.bz2
 	rm -f $(MAN1DIR)/pb_check.1.bz2
 	rm -f $(MAN1DIR)/pb_freq_gen.1.bz2
 	rm -f $(MAN1DIR)/pb_manual.1.bz2

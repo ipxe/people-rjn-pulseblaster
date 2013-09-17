@@ -1,9 +1,6 @@
 /* This is pulseblaster.h the definitions by pb_functions.c etc. See also the manual.		*
- * NOTE: this header is parsed by pb_parse (PHP) as well as by the C-preprocessor. 		*
- * Please don't try anything too clever, such as: 						*
- *     #define PB_MINIMUM_WAIT_DELAY (PB_WAIT_LATENCY+PB_MINIMUM_DELAY-PB_INTERNAL_LATENCY)	*
- * or it will fail.										*
- * Copright by Richard Neill <pulseblaster at REMOVEME.richardneill.org> 2004-2011.		*
+ * It is used indirectly, via pb_print_config, by pb_parse.php					*
+ * Copright by Richard Neill <pulseblaster at REMOVEME.richardneill.org> 2004-2013.		*
  * This is Free Software, released under the GNU GPL, version 3 or later: http://gnu.org/  	*/
 
 /* Important, global definitions */
@@ -51,7 +48,6 @@
 #define PB_MINIMUM_WAIT_DELAY   	12	/* PB_MINIMUM_WAIT_DELAY is shortest possible wait instruction. I *think* this is correct. See
 						 * http://www.pulseblaster.com/CD/PulseBlaster/ISA/WAIT_Op_Code_rev1.pdf
 					 	 * Calculation: PB_MINIMUM_WAIT_DELAY = PB_WAIT_LATENCY+PB_MINIMUM_DELAY-PB_INTERNAL_LATENCY
-						 * NB add these together manually; don't use the preprocessor. See above for why.
 						 */
 
 #define PB_BUG_PRESTOP_EXTRADELAY 	2	/* This is a hardware bug/misfeature: the instruction which precedes a STOP has a minimum length requirement 1 or sometimes 2 ticks
@@ -90,15 +86,15 @@
 #define PB_ARG_20BIT     		0xFFFFF		/* Argument max size. Hardcoded in VLIW format */
 #define PB_BPW_VLIW    			10		/* Bytes per word = 10 for VLIW */
 
-#define PB_OPCODE_CONT			0	/* Definition of Opcode CONT = 0 */
-#define PB_OPCODE_STOP  		1	/* Definition of Opcode STOP = 1 */
-#define PB_OPCODE_LOOP			2	/* Definition of Opcode LOOP = 2 */
-#define PB_OPCODE_ENDLOOP		3	/* Definition of Opcode ENDLOOP = 3 */
-#define PB_OPCODE_CALL			4	/* Definition of Opcode CALL = 4 */
-#define PB_OPCODE_RETURN		5	/* Definition of Opcode RETURN = 5 */
-#define PB_OPCODE_GOTO			6	/* Definition of Opcode GOTO = 6 */
+#define PB_OPCODE_CONT			0	/* Definition of Opcode CONT = 0      */
+#define PB_OPCODE_STOP  		1	/* Definition of Opcode STOP = 1      */
+#define PB_OPCODE_LOOP			2	/* Definition of Opcode LOOP = 2      */
+#define PB_OPCODE_ENDLOOP		3	/* Definition of Opcode ENDLOOP = 3   */
+#define PB_OPCODE_CALL			4	/* Definition of Opcode CALL = 4      */
+#define PB_OPCODE_RETURN		5	/* Definition of Opcode RETURN = 5    */
+#define PB_OPCODE_GOTO			6	/* Definition of Opcode GOTO = 6      */
 #define PB_OPCODE_LONGDELAY		7	/* Definition of Opcode LONGDELAY = 7 */
-#define PB_OPCODE_WAIT			8	/* Definition of Opcode WAIT = 8 */
+#define PB_OPCODE_WAIT			8	/* Definition of Opcode WAIT = 8      */
 
 /* Exit codes */
 #define PB_EXIT_OK			0	/* Exit with success */
