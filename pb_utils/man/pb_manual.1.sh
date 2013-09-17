@@ -23,7 +23,7 @@ SOURCE="IR Camera System"
 DATE="July 2012"
 
 #See also. Array, Each manpage with its section.
-SEE_ALSO=( "pb_utils (1)" )
+SEE_ALSO=( "pb_utils (1)" "pb_freq_gen (1)" "pb_identify_output (1)" )
 
 #Prefix each line with a leading space? Prevent paragraphs from being line-wrapped. true/false
 LEADING_SPACE=true

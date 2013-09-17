@@ -6,11 +6,11 @@ See: http://spincore.com/products/PulseBlaster/PulseBlaster-Programmable-Pulse-G
 It consists of:
 
 
-kernel/
+driver/
+  kernel/
 	The driver. This builds on kernel 3.8. 
   	It creates entries in /sys, under /sys/class/pulseblaster/
-
-pb_ctl/
+  pb_ctl/
 	A simple control script and some debugging/diagnostic utilities.
 
 pb_utils/
@@ -99,7 +99,7 @@ pb_utils/ comprises:
 	  pb_check						- check lspci for the pulseblaster hardware being present.
 	  
 For debugging, use:
-	  pb_test-identify-output.sh				- identify a particular output in the hardware by flashing its bit.
+	  pb_identify_output.sh					- identify a particular output in the hardware by flashing its bit.
 	  pb_freq_gen.sh					- generate a square wave of a desired frequency on selected bits.
 	  pb_manual						- manually, interactively, control the pulseblaster outputs. This is actually quite useful!
 	  

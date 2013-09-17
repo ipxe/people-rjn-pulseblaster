@@ -1,13 +1,13 @@
 #Generate manpage from command's output. Invoke with "sh", -h for help.
 
 #Program name.
-NAME="pb_freq_out"
+NAME="pb_identify_output"
 
 #The binary, (relative path to this script). Invoked with "-h" for help text (stdout or stderr)
-BINARY=../src/pb_freq_out.sh
+BINARY=../src/pb_identify_output.sh
 
 #Description: brief string for the start of the man page.
-DESCRIPTION="output a square wave from the pulseblaster"
+DESCRIPTION="identify a given output of the pulseblaster, and check phase"
 
 #Synopsis text, or leave blank to omit. Add leading spaces to avoid automatic paragraph formatting.
 SYNOPSIS=`cat <<-EOT
@@ -23,7 +23,7 @@ SOURCE="IR Camera System"
 DATE="July 2012"
 
 #See also. Array, Each manpage with its section.
-SEE_ALSO=( "pb_utils (1)" "ni4462_system_clock_calibrate (1)" )
+SEE_ALSO=( "pb_utils (1)"  "pb_freq_gen (1)" "pb_manual (1)" )
 
 #Prefix each line with a leading space? Prevent paragraphs from being line-wrapped. true/false
 LEADING_SPACE=true

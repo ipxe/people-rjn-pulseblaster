@@ -66,6 +66,9 @@ src/
 
 
 	Helper programs:
+		pb_identify_output
+			Control the PB to flash one (specified) bit, asymmetrically, to identify it and check phase.
+
 		pb_freq_gen
 			Control the PB to output a square wave of a given frequency on a given set of output bits.
 		
@@ -121,3 +124,8 @@ Makefile
 README.txt, LICENSE.txt
 	This readme, and the GPL License.
 
+
+See also: 
+ * This was written as part of my PhD InfraRed Camera system: http://www.richardneill.org/phd
+ * There is a GIT tree at: http://git.ipxe.org/people/rjn/pulseblaster.git
+ * There is also a parser, pb_parse in a parallel project.

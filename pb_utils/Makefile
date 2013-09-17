@@ -60,6 +60,7 @@ manpages:
 	bash man/pb_utils.1.sh
 	bash man/vliw.5.sh
 	bash man/pb_freq_gen.1.sh
+	bash man/pb_identify_output.1.sh
 	bash man/pb_manual.1.sh
 	bash man/pb_serial_trigger.1.sh
 	bash man/pb_serial_trigger_check.1.sh
@@ -108,6 +109,7 @@ install:
 	install        src/pb_vliw                $(BINDIR)
 	install        src/pb_print_config        $(BINDIR)
 	install        src/pb_check.sh            $(BINDIR)/pb_check
+	install        src/pb_identify_output.sh  $(BINDIR)/pb_identify_output
 	install        src/pb_freq_gen.sh         $(BINDIR)/pb_freq_gen
 	install        src/pb_manual.sh           $(BINDIR)/pb_manual
 	install        src/pb_serial_trigger      $(BINDIR)
@@ -149,6 +151,7 @@ uninstall:
 
 	rm -f $(BINDIR)/pb_test-pbinit-counter
 	rm -f $(BINDIR)/pb_test-vliw-walk4
+	rm -f $(BINDIR)/pb_identify_output
 	rm -f $(BINDIR)/pb_freq_gen
 	rm -f $(BINDIR)/pb_manual
 
@@ -169,6 +172,7 @@ uninstall:
 	rm -f $(MAN1DIR)/pb_vliw.1.bz2
 	rm -f $(MAN1DIR)/pb_print_config.1.bz2
 	rm -f $(MAN1DIR)/pb_check.1.bz2
+	rm -f $(MAN1DIR)/pb_identify_output.1.bz2
 	rm -f $(MAN1DIR)/pb_freq_gen.1.bz2
 	rm -f $(MAN1DIR)/pb_manual.1.bz2
 	rm -f $(MAN1DIR)/pb_serial_trigger.1.bz2
