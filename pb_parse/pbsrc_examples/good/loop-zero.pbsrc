@@ -1,0 +1,19 @@
+/*This is a test of the LOOP and ENDLOOP opcodes, with NESTING, where the outer loop goes
+  round ZERO times.
+
+This program ought to
+   a)Output 0x1	 for 5 seconds.
+   b)Loop 0 times (body). i.e. nothing at all.
+   c)ALL LEDs on (denote end of program) for 1 second, then
+   d)GOTO start
+*/
+
+start:		0x1		cont		-		5s		//LED 0
+
+lp1:		loop		0		0x80		1s		//ZEROLOOP
+
+lp2:            loop		3		0x80		0.2s		//Would flash LED 7.
+		0x00		0.2s		endloop		lp2
+		0x8000		2s		endloop		lp1		//Would turn LED 7 off, 15 on.
+
+		0xffff		1s		goto		start

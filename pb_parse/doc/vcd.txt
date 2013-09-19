@@ -1,0 +1,65 @@
+INTRO
+=====
+
+This is the documentation for the .vcd file format, the Value Change Dump, used by wavefile viewers such as gtkwave.
+The main documentation is at http://en.wikipedia.org/wiki/Value_change_dump or here: http://www.beyondttl.com/vcd.php
+
+LABELS
+======
+
+* If no labels are given, then the bits are labelled Bit_23 ... Bit_0, all bits are included in the file.
+* If -L list  is given on the command-line, then only certain bits are output here, and they are appropriately labelled.
+* If the keyword "#vcdlabels" is used in the file, it has the same effect as -L.  (-L overrides #vcdlabels)
+
+
+
+FILE FORMAT
+===========
+
+This contains a header section, followed by some data. There is no footer.
+My comments are using // on the far right.  Note that '$' is literal in VCD.
+Note that we don't actually know the startup state, hence initial x.
+
+
+
+$date
+   Date text. For example: November 11, 2009.				//The date.
+$end
+$version
+   VCD generator tool version info text.				//Info about pb_parse
+$end
+$comment
+   Any comment text.							//Info on the original source file
+$end
+$timescale 1ps $end							//Pulseblaster tick (usually 10ns)
+$scope module logic $end						//Module name (free choice)
+$var wire 1 A data_valid $end						//Variable definitions.
+$var wire 1 B en $end							//  wire 1    means  a single-bit wide "bus"
+$var wire 1 C rx_en $end						//  The compact identifier A-F is the shortname for it; any printable ASCII chars are allowed.
+$var wire 1 D tx_en $end						//  data_valid, en, rx_en  etc are the labels for these wires.
+$var wire 1 E empty $end
+$var wire 1 D underrun $end
+$upscope $end
+$enddefinitions $end							//End definitions
+$dumpvars								//Begin dump of initial variable state. Must list all of them.
+xA
+xB									//  Anything beginning with 0,1,x is a logic state. We usually use 0 or 1.
+xC									//  '1D' means 'identifier D is in state 1'
+xD
+xE
+xF
+$end									//End dump of initial state.
+#0									//Anything beginning with # is a timestamp, in timescale units.
+0A
+1B
+0C
+1D
+0E
+0F
+#2211									//Only the variables that change state need to be listed.
+0D									//This provides some run-length-encoding.
+#2296
+1A
+#2302
+0A
+#2303

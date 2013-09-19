@@ -1,0 +1,18 @@
+/*This is a test of the WAIT opcode. This program ought to
+   a)Output 0x1	  (1 LED) for 3 seconds
+   b)Output 0xff  (8 LEDs), and then WAIT.
+   c)On HW_TRIG, or running pb_cont, it should delay another 3 seconds.
+   d)Output 0xffff (16 LEDs), for 3 seconds
+   e)Output 0x0  (all off) and STOP. # NB overloaded stop opcode!
+
+  Note that running pb_start will RE-start the device - not what is wanted!
+   
+*/
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+		0x1		cont		-		2s		//1 LED
+		0xdd		wait		-		2s		//2 LEDs. Wait for trigger, THEN 2 secs.
+		0xffff		cont		-		2s		//3 LEDs
+
+		0x0		stop		-		-		//All off. (Overloaded STOP)

@@ -1,0 +1,16 @@
+/* This is a test of the simulator speed. It runs a 20ms loop, 500 times. 
+   See what the simulator's measured clock speed is - it should take 10 seconds to run.
+   [Note: can also alter the simulation clock with -z]
+*/
+
+#define T 10ms			//Note, this is half the loop time
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+//Simple Version
+
+start:		0x1		loop		500		T		//LED 0
+		0x80		endloop		start		T		//LED 7
+
+		0xFFFFFF	stop		-		-		//All
+

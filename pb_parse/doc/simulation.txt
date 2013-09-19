@@ -1,0 +1,309 @@
+INTRODUCTION
+------------
+
+The pulseblaster simulator is invoked by using the -s option to pb_parse. For example:
+	pb_parse.php -xqs -i example.pbsrc
+
+The simulator parses the input file, and then simulates an entire run of the program, checking for errors which would
+only appear at runtime, for example  stack-depth and loop-nest-depth violations, or running past the end of the address-space.
+This simulation is quick, compared to the parsing itself, and tests for all possible problems. The simluation is *always*
+guaranteed to terminate, *even* if the pulseblaster itself would run in an infinite-loop.
+
+Should the simulation detects an error, but you want to generate a .vliw file anyway, re-invoke the parser without the -s option.
+
+The simulator will miss 2 types of errors:
+
+	i)  Logic Errors, e.g. "Oops, I meant 11 instead of 10 loops", or "Oops: that output should be 0xF0, not 0x0F".
+	ii) Bugs in the simulator - although there are believed to be none of these!
+
+
+THEORY
+------
+
+The pulseblaster has two features making it amenable to easy simulation:
+
+	1)It isn't Turing-Complete - it is most definitely finite!
+	2)There are no *conditional* branches.
+	3)There is very little internal state (the program counter, and two stacks, but no variables).
+	4)Some instructions can be simply ignored, eg CONT, LONGDELAY, WAIT.
+
+Therefore, we can simply:
+
+	i) Start at the beginning
+	ii)Follow the instructions through until we get to either:
+		a)a STOP instruction (in which case, we know we have terminated happily).
+		b)we re-visit an address where we have been before, in which case, we know that we have an infinite loop.
+        	c)We run off the end of the program, in which case, we know we have a bug.
+	iii)At each instruction, check that the state of the program is valid. We must save the stack/loop depths for later, so that if we re-visit an instruction
+		(case b), then we can compare the current depths with the previous depth. If they are equal, we are happy; otherwise, we know that the stack will
+		eventually crash.
+	iv)We can cheat with loops - we need only ever go round once - therefore every ENDLOOP exits the loop.
+	v) We should also check for any unused (never-visited) instructions - these are redundant, and should generate a warning.
+
+The state machine (with initial values) is:
+	$PC=0;			//program counter (== address counter)
+	$SUB_STACK=array();	//subroutine stack (for return addresses)
+	$SD=0;  		//subroutine stack depth.
+	$LOOP_STACK=array();	//loop stack, containing the loop *counter* for the current (and nested) loops.
+	$LD=0;			//loop stack depth
+	$ELL=0;			//endloop looped. Set true by an endloop that did jump back. Set false by every other instruction. Tested by loop.
+
+Also, we need:
+	$loopstart_addresscheck_stack=array();	//another loop stack (for addresses). We use it for checking, but it is NOT in the state-machine (the pulseblaster doesn't actually have one of these! It relies on the value of ARG being correct.)
+	$instruction_visited=array();		//has this instruction been visited before (and how many times?)
+
+
+CALL and RETURN
+---------------
+
+	call:
+		output()
+		push PC onto SUB_STACK
+		SD++
+		check that SD <= MAX_SUB_DEPTH
+		PC=ARG					//jump to the routine.
+		delay()
+
+	return:
+		output()
+		PC = pop SUB_STACK
+		SD--
+		check that SD >= 0
+		PC++					//return to one instruction after the caller.
+		delay()
+
+
+LOOP and ENDLOOP
+----------------
+
+	Note: the pulseblaster does NOT save the address of the start-of-loop which it is currently in. This *could* be on an internal stack, but the pulseblaster
+	'cheats' to save memory, and and so ENDLOOP requires it in ARG instead. This information (although required), is redundant. It MUST (obviously!) match the
+	address of the corresponding correctly-nested LOOP instruction, and therefore the parser could calculate it if required.
+	The simulator checks on this by using $loopstart_addresscheck_stack, which ought to always be equal to the ARG, Otherwise, some very  weird program-flow would
+	result from mis-nesting.
+
+	loop:
+		output()
+		if ( ! ELL ) {				//If we jumped back from our own endloop, don't begin a deeper loop.  [because loops nest, "our own" === "any"]
+			push ARG onto LOOP_STACK	//ARG is the *counter* for the loop.
+			push PC onto loopstart_addresscheck_stack
+			LD++
+			check that LD <= MAX_LOOP_DEPTH
+		}
+		ELL = 0;
+		PC++
+		delay()
+
+	endloop:
+		output()
+		loop_counter = pop LOOP_STACK
+		LD--
+		check that LD >= 0
+		start_loop_address = pop loopstart_addresscheck_stack
+		check that start_loop_address == ARG
+		loop_counter--
+
+		if ($SIMULATION_USE_LOOPCHEAT){		//cheat - and only bother with a single iteration.
+			loop_counter = 0
+		}
+
+		if (loop_counter == 0){	//end loop
+			ELL = 0
+			PC++;
+		}else{
+			push loop_counter onto LOOP_STACK
+			LD++
+			push start_loop_address onto loopstart_addresscheck_stack
+			ELL = 1
+			PC = start_loop_address		//Note that we jump back to the loop start address itself, not 1 inside the loop!
+		}
+		delay()
+
+
+	//every instruction except endloop must now end with ELL = 0;
+
+
+
+SIMULATION_USE_LOOPCHEAT
+------------------------
+
+This is hardcoded in the source of pb_parse, and should normally be TRUE. If true, we 'cheat' by only ever going through each loop once (i.e. never repeating
+instructions by actually looping back). This allows a much quicker simulation, and for the simulation to be conclusive.
+
+However, if desired, it can be set to FALSE (which will provoke a warning). Then loops will be simulated fully (although this provides very little extra information).
+As a consequence, we have to disable the test for instructions being revisited - this means that we cannot guarantee that the simulation will ever terminate!
+Ctrl-C may be required!
+
+
+For more details see the source. It's quite simple, and well-commented.
+
+
+
+EXIT STATUS
+-----------
+
+The simulator may terminate with any of the following situations:
+
+
+	INFINITE_LOOP
+		//We got into an infinite loop. Everything is fine, and we also know that the stack/loop depths are OK
+		Simulation was successful. The pulseblaster program will work fine (and will never terminate). Note: we have also tested OK for stack and loop depth.
+
+	INFINITE_LOOP_STACKBUG
+		//We got into an infinite loop, but we know that the stack depth has increased. This will ultimately exceed the max stack depth.
+		Error: simulation proved that the program will fail. It works in an infinite loop, but each iteration increases the stack depth. Exiting now.
+
+	INFINITE_LOOP_LOOPBUG
+		//We got into an infinite loop, but we know that the loop depth (compensated by ELL) has increased. This will ultimately exceed the max loop depth.
+		Error: simulation proved that the program will fail. It works in an infinite loop, but each iteration increases the loop depth. Exiting now.
+
+	STOPPED
+		//We reached a STOP instruction. We're happy.
+		Simulation was successful. The pulseblaster program will work fine (and will terminate at STOP). Note: we have also tested OK for stack and loop depth.
+
+	RAN_PAST_END
+		//Ran past the end of the code. Fatal. Don't even try to program this into the pulseblaster.
+		Error: simulation proved that the program will fail. It runs past the end of the code, without ever encountering a STOP. Exiting now.
+
+	STACK_DEPTH_EXCEEDED
+		//Too many nested calls.
+		Error: simulation proved that the program will fail. It exceeds the maximum stack depth for nested subroutine calls. Exiting now.
+
+	NON_EXISTENT_RETURN
+		//Tried to return, without call.
+		Error: simulation proved that the program will fail. It attempts to return from a non-existent call, with an empty stack. Exiting now.
+
+	LOOP_DEPTH_EXCEEDED
+		//Too many nested loops.
+		Error: simulation proved that the program will fail. It exceeds the maximum loop depth for nested loops. Exiting now.
+
+	NON_EXISTENT_ENDLOOP
+		//Tried to endloop, without having been in a loop.
+		Error: simulation proved that the program will fail. It attempts to end a loop which has not been started, with an empty stack. Exiting now.
+
+ 	WRONG_LOOP_STARTADDR
+		//Occurs when ARG points to the wrong start of loop, or simply not to a loop at all.
+		Error: simulation proved that the program will fail. The ARG of an ENDLOOP does not point back to the correct LOOP. Either the loop is mis-nested,
+			or the ARG doesn't point to a start of loop at all. Exiting now.
+
+
+
+There may also be a warning if there is any redundant code:
+		Not all instructions were executed. Program execution never reaches the following redundant instructions:
+		<LIST OF UNUSED INSTRUCTIONS>
+
+
+
+
+OPTIONS
+-------
+
+
+The simulation can be invoked in 2 modes: optimised (-s) and full (-f).
+
+ - In the optimised mode, each instruction location is only reached once, and the simulation runs quickly, and is guaranteed to terminate.
+
+ - In the full mode, each and every instruction is faithfully executed. This simulation may run indefinitely.
+
+In either case, -r shows greater verbosity, and register details.
+
+
+Simulation options which modify -f are:
+
+Output mode controls:
+
+   *  Single status line (-l).  The output is a constantly updated status-line, with virtual LEDs, over-written using \r.
+
+   *  Piano roll mode (-r)   Same as -l, but with \n as line-separator, so each item of history is visible.
+
+   *  Beep (-b)  Beep on each next instruction.
+
+   *  Device outputs (-j).  Output the bytes to actual devices, during the simulation. This allows, for example, a poor-man's pulseblaster
+      to be constructed from 3 parallel ports. This is most useful combined with -t, though the simulation can only run at a few kHz. See
+      parport-output.txt for more details. (Note that this needs a fifo, and writes will block; stopping blocked processes needs kill -9.)
+
+   * Simulation Replay Log (-g). This outputs the byte data and lengths, useful for reading into other programs.
+
+   * Value Change Dump (-G). This outputs a VCD file, a standard format for wave-viewers.
+
+
+Input controls:
+
+   *  Single/Multi-step on keypress (-k). On each instruction, wait for keypress. Can multi-step by entering a number, or single-step with [ENTER].
+
+   *  Wait instructions actually wait for ENTER, rather than auto-continuing.
+
+   *  In any case except the optimised simulation, pressing Q,ENTER will quit the simulation gracefully on the next step, proceeding to generate
+      a .vliw file (and resetting the terminal colours, if necessary). Cancelling with Ctrl-C will not give a .vliw file.
+
+Timing controls:
+
+   *  Run realtime (-t). This means the simulation tries to run in real-time. It does this by usleep()ing after each instruction for a time calculated
+      from the opcode's delay, and from the current microtime. Usleep is only approximate. The simulation will speed-up/slow-down in order to get back
+      in sync with the wall-clock time: it tries to keep ELAPSED_TICKS in sync with microtime(). If the simulation cannot catch up within one instruction, it will
+      emit a warning. Generally, -t is only accurate for instructions longer than about 0.1 ms. The simulation can run faster on a better CPU. It is also
+      slowed down by about 10% if -j is enabled, and by 70% if it is writing output to konsole (especially if colours are not disabled with -m). For best
+      performance, redirect stdout to a log file.
+
+   *  Modify clock factor (-z). This overclocks the realtime simulation by a factor of clock_factor, eg 2 for double speed, or 0.5 for half-speed.
+
+Breakpoints:
+
+   * MARK opcodes cause extra information to be printed (especially in -g). This lets us programatically measure how long a certain (complex) routine takes to run.
+     The prefix is "MARK:"  The information printed is in the sim_mark_time() function of pb_parse.
+     
+   * During simulation (-g), the parser prints the following information:    (use COMMENT to identify which mark is which)
+        MARK:  $STEP  $ELAPSED_TICKS  $PC $VISIT $ELAPSED_NS  LENGTH OUTPUT COMMENT 
+     
+   * In the simulation file (.pbsim), the line is in this format:
+        //MARK: step=15 ticks=860       ns=8600 pc=3    visit=4 length=100      out=0x64        cmt=//the mark comment
+
+   * See also the #endhere directive.
+   
+        
+NOTES
+-----
+
+
+The problem with testing for endloops in the parser (not the simulator)
+-----------------------------------------------------------------------
+
+Referenced by source: "DOCREFERENCE: LOOP-CHECK".
+
+In the parser (*before* the simulation stage), we come across instructions in address order. It seems perfectly sensible to assume that all LOOPS must
+precede their (matching) ENDLOOP and therefore, we can use a simple stack to check that each endloop is correctly nested. However, this is NOT true. So,
+when we do this test, and it fails, we cannot be absolutely certain of a problem, and therefore must be content with a warning, not a fatal error.
+
+After simulation, we can prove it either way....
+
+Here is an example of some awkward code. This code is:
+	- Valid, and will execute correctly
+	- Very ugly, with dreadful style
+	- Will trigger the parser's WARNING. (false positive).
+	- Will be (rightly) accepted as correct by the simulator.
+
+See also ugly.pbsrc
+
+//==== BEGIN ===
+//LABEL		OUTPUT		OPCODE		ARG		LENGTH		//COMMENT
+
+x:		0x1		loop		3		10		//Endloop (1) jumps over another endloop. Ugly.
+		0x2		goto 		jmp		10
+
+y2:		0x03		cont		-		10
+		0x04		endloop		y		10		//(2)
+		0x05		stop		-		-
+
+jmp:		0x06		endloop		x		10		//(1)
+y:		0x07		loop 		4		10		//Endloop (2) comes before its own loop. Very ugly!
+		0x08		goto		y2		10
+//==== END =====
+
+
+
+
+PLAYBACK
+--------
+
+To interpret the VCD files, use eg gtkwave.
+To interpret the PBSIM files, use hawaiisim.

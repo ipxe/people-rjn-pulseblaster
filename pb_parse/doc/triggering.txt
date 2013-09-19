@@ -1,0 +1,1 @@
+See  ../../pb_utils/doc/pulseblaster-hardware-trigger-reset.txt

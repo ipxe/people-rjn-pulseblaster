@@ -1,0 +1,100 @@
+/* This is an example .pbsrc file (created by pb_parse -e) The format is documented fully in doc/pbsrc.txt.								*
+ * Here, we demonstrate most of the features, as a quick reference. Everything is case-sensitive, except opcode names.	 						*
+ * For hardware config details (max loop/subroutine stack-depth, clock-speed, min allowed value of length etc), invoke pb_parse with -c 				*
+ * The parser is very good at catching errors, e.g. illegal instructions, or invalid values. Simulate to catch stack/loop-depth bugs.					*
+ * VLIW     summary: Output; do Opcode(ARG) taking LENGTH to execute. May write: out,opc,arg,len; opc,arg,out,len; or out,len,opc,arg.  				*	
+ * Numbers  summary: 0xFF, 1123, 0b_0000_1111__0000_1111, 20_ticks, 10_us, 5ms, 3.5_day, 20_ticks. (underscores optional for clarity).					*
+ * Opcodes  summary: cont[inue], longdelay, loop, endloop, goto, call, return, wait, stop, nop, debug, mark, never.							*
+ * Keywords summary: #include, #hwassert, #assert, #define, #what, #default:, #if, #ifnot, #set, #vcdlabels, #endhere, #execinc, #macro, #echo, same, short, auto.	*
+ * Bitwise  summary: bit_{or, set, clear, mask, and, flip, xor, xnor, nand, nor, add, sub, bus, rlf, rrf, slc, src, sls, srs}(xxx)					*
+ * Operator summary: Math: (),+,-,*,/,%  Bit: (,),|,&,^,~,<<,>>  Compare: ==,!=,<,>,<=,>=  Logic: &&,||,!,?,:  Err_ctl: @. '/' is float.				*
+ * Description:  This is a contrived example; it's not meant to be useful. It's convoluted so as to check all features of pb_parse.					*
+ * Author: Richard Neill, Date: 2013-09-17																*
+ */
+
+#hwassert PB_TICK_NS	10			//Check/enforce the value of a configuration setting of pb_utils, via pb_print_config. (Optional)
+
+#include  "/dev/null"				//Include a file. Filename between double-quotes. Nested includes are not allowed.
+
+#define	  T		100us			//Define a constant T to be the string 100us (subsequently evaluated as 100 microseconds).
+#define	  LOOP_5_TIMES	loop   5		//The value of a #define needn't be a single word.
+#define	  CLOCK		0x10000			//Use '#define constname #what' to indicate requirement for '-Dconst=???' with pb_parse
+#define	  TRIG		#default:0x20000	//This defaults to 0x20000 but may optionally be overridden with -D. (#what requires -D).
+#define   BIT7		0x100			//Friendly mnemonics for some output bits.
+#define   BIT9		0x400
+#define   X		100			//Used in expressions below.
+#define	  Y		200
+#define	  P		0xF0
+#define	  Q		0x12
+
+#vcdlabels  TRIG,CLOCK,-,-,-,-,-,-,-,-,BIT7,-,-,-,-,-,-,-    //Signal names to monitor in the VCD file.
+
+#set OUTPUT_BIT_INVERT  0x800000|CLOCK			//Set that these outputs are active_low. At the end of the parsing, these bits will be flipped.
+
+#execinc  "/bin/echo"  #define XZZY  22+Y		//Example #execinc. This one is trivial, using echo to simply return a dummy #define.
+
+#assert   (X+Y)	>  	10				//Check the truth of an expression.
+
+/*** MACRO definitions. Macros are declared with the '#macro' keyword, and are inlined by the parser. ***/
+
+//LABEL:	OUT/OUT/OPC		OPC/LEN/ARG	ARG/OPC/OUT	LEN/ARG/LEN	//comment
+
+#macro	trigger() {									//trigger() macro takes no arguments.
+		bit_set(TRIG)		cont		-		T		//Set, then clear the trigger bit.
+		bit_clear(TRIG)		cont		-		T
+}
+
+#macro  clock_n($n,$t){  								//clock_n() macro takes two arguments. Squelch the warning.
+	lbl:	@bit_set(CLOCK)		loop		3*$n+(4/2)	$t		//Pulse the clock line 3*n+1 times.  Note: inlining parenthesises ($n).
+		bit_clear(CLOCK)	endloop		lbl		$t
+#echo   Macro clock_n() was called with _n $n and _t $t .			 	//Parser will print this during the compile stage. Useful to see what the values are.
+}
+
+/*** THE MAIN PROGRAM STARTS HERE. (This is the first instruction, after macros have been inlined.) ***/
+
+//LABEL:	OUT/OUT/OPC		OPC/LEN/ARG	ARG/OPC/OUT	LEN/ARG/LEN	//comment
+
+		0x00			cont		-		1_s		//output 000000 for 1 second. Then continue.
+		
+#if(ABC)        0xabc			cont		-		10		//Enable or disable, with -DABC or -DNoABC
+#ifnot(ABC)     0xcba			mark		-		10		//Disable or enable, with -DABC or -DNoABC. Mark breakpoint for simulation.
+
+		trigger()								//call the trigger() macro.
+
+lpstart:	loop			7		0x01		10		//Loop exactly n times. (n >= 1)
+		0x_FE_DC_BA		longdelay	auto		4_min		//Wait for ARG * LENGTH. Here, 4 minutes (using auto).
+
+lpinner:	BIT7|BIT9		LOOP_5_TIMES			short		//start another loop. Output is logical_or of BIT7 and BIT9.
+
+		clock_n(100,30*T)							//inline the clock_n macro with arguments 100, 30*T
+
+		1234			short		endloop		lpinner		//End of inner loop. (Max nested loops = 8.) (Note: 1234 is decimal, i.e. 0x4d2).
+
+		0b1111_00000		15_ticks	endloop		lpstart		//Loop back to start of this loop at label 'lpstart' (not lpstart+1), or continue. VLIW reordering.
+
+		0xFF_FF_FF		call		sub_x		5.43s		//Output ... then wait ... then call subroutine 'sub_x'.
+
+		(X>Y)?P:(Q<<2)		cont		-		(X+Y)*1us	//Example of conditional #define (ternary operator). As Y > X, the output is (Q<<2) i.e. 0x48
+
+		clock_n( P?P:Q, (X>Y)?P*T:(Q*T) )					//A more complex macro call, with expressions.
+
+		XZZY			wait		-		200+(301-1)	//Output, then WAIT for HW_TRIGGER. ON *wakeup*, wait 500 cycles, then continue.
+
+		same			goto		lpstart		10*T		//Goto label 'loopstart'.
+
+		/* We just did a GOTO. These instructions are never reached; here for completeness. */
+		-			nop		-		-		//No operation. (shortest delay, outputs unchanged)
+		0x33			stop		-		-		//Overloaded opcode. Set the outputs to 0x33, then STOP. HW_TRIGGER will restart from the beginning.
+
+
+
+/*** SUBROUTINES START HERE. (Put subroutines at the end, or jump over them with a GOTO). Max depth of nested subroutines is 8. ***/
+
+//LABEL:	OUT/OUT/OPC		OPC/LEN/ARG	ARG/OPC/OUT	LEN/ARG/LEN	//comment
+
+sub_x:		0xFFFF00		 cont		-		60s		//Note: 60s gets 'promoted' to longdelay.
+		bit_add(0x01),bit_rlf(2) cont		-		1us		//Next is a __return opcode macro, which merges into cont.
+		__return								//Return from subroutine. Argument ignored.
+
+
+/*** END OF PROGRAM ***/

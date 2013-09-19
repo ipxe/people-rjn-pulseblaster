@@ -1,0 +1,32 @@
+/*This is a test of the LONGDELAY opcode (and promoted/demoted conts). This program ought to:
+
+   a) Output 0x1  	(1 LED),  for 5 seconds.
+   b) Output 0x3  	(2 LEDs), for 10 seconds
+   c) Output 0x7  	(3 LEDs), for 15 seconds
+   d) Output 0xF  	(4 LEDs), for 1 minutes
+   e) Output 0x1F 	(5 LEDs), for 2 minutes
+   f) Output 0xFF 	(8 LEDs), for 6 minutes
+   g) Output 0xFFFFFF	(24 LEDs),for over a year  (if you don't terminate it first!)
+   h) Output 0x0  	(all off) and STOP.
+*/
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+		
+	
+/*		0x0		longdelay	0		1s		//This would be illegal, as longdelay must have ARG >0. It triggers a parser error. Commented out.  */
+
+		0x1		longdelay	1		5s		//1 LED,  5s. 	Longdelay - but will be automatically 'demoted' to Cont, since arg=1.
+
+		0x3		longdelay	2		5s		//2 LEDs, 10s.	Longdelay, specified in full.
+
+		0x7		longdelay	3		5s		//3 LEDs, 15s. 	Longdelay, specified in full.  [Aside: 3 is smallest value exceeding PB_BUG_LONGDELAY_OFFSET]
+
+		0xf		longdelay	-		1min		//4 LEDs, 1min. Long delay, automatic calculation of ARG.
+
+		0x1f		longdelay	auto		2min		//5 LEDs, 2min  Long delay, automatic calculation of ARG.  (auto makes this explicit)
+
+		0xff		cont		-		0.1hr		//8 LEDs, 6min. Cont, gets automatically 'promoted' to Longdelay. (DWIM)
+
+		0xffffff	longdelay	auto		521days		//24 LEDs, for a looong time...
+
+		0x0		stop		-		-		//All off.

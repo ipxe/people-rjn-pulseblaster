@@ -1,0 +1,147 @@
+/* Clock macros. Include hawaii.h first. */
+#macro sleep($t){							//Sleep (== integrate) for t.
+	@same			cont		-   	$t	
+}
+
+#macro  initialise(){							//Initialise to the start state.
+ 	START_STATE		cont		-	T_DIG	
+}
+
+#macro 	fsync(){							//Do an FSync
+	@bit_clr(FSYNC)		cont		-	T_DIG		
+	bit_set(FSYNC)		cont		-	T_DIG
+}
+#macro 	lsync(){							//Do an LSync
+	@bit_clr(LSYNC)		cont		-	T_DIG		
+	bit_set(LSYNC)		cont		-	T_DIG
+}
+
+
+#macro 	reset_enable(){							//Enable Reset
+	@bit_clr(RESETB)	cont		-	T_RESET_DEFAULT	
+}
+#macro 	reset_disable(){						//Disable Reset
+	@bit_set(RESETB)	cont		-	T_DIG		
+}
+#macro reset_for($t){							//Reset, for time (almost) $t, taking $t to complete.
+	@bit_clr(RESETB)	cont		-	($t-T_DIG)	
+	bit_set(RESETB)		cont		-	T_DIG		
+}
+
+
+#macro read_enable(){							//Enable Reads
+	@bit_set(READ)		cont		-	T_READSETUP_DEFAULT 
+}
+#macro read_enable_t($t){						//Enable_reads, taking time $t to complete.
+	@bit_set(READ)		cont		-	$t		
+}
+#macro read_disable(){							//Disable Reads
+	@bit_clr(READ)		cont		-	T_DIG			
+}
+
+
+#macro  adc_trigger(){							//Trigger the ADC.
+	@bit_clr(ADC)		cont		-	T_ADC_DEFAULT	//Note: not one sample, but the start of acquisition.
+ 	bit_set(ADC)		cont		-	short		
+}
+#macro  adc_trigger_t($t){						//Trigger the ADC, taking $t AFTER the edge.
+	@bit_clr(ADC)		cont		-	T_DIG		//Note: not one sample, but the start of acquisition.
+ 	bit_set(ADC)		cont		-	($t-T_DIG)	
+}
+
+
+#macro  fake_adc(){							//FAKE an ADC sample. Used for hawaiisim only, NOT the real hardware, which cannot
+	@bit_clr(FAKEADC)	cont		-	(T_FAKEADC_DEFAULT-short) //respond to individual "do a single conversion now" pulses.
+ 	bit_set(FAKEADC)	cont		-	short		
+}	
+#macro  toggle_loopback(){						//Toggle the loopback bit.
+	@bit_flip(LOOPBACK3)	cont		-	short
+}
+
+#macro	clock_bits($bits){						//Clock bits:
+	@bit_flip($bits)	cont		-	T_DIG		//	single edge on specified BITs
+}									
+#macro	clock2_bits($bits){						//Clock bits:
+	@bit_flip($bits)	cont		-	T_DIG		//	two edges on specified BITs
+	bit_flip($bits)		cont		-	T_DIG		//	single edge on specified BITs
+}									
+
+#macro  clock_lines($lines){						//Clock lines:
+	@bit_flip($lines)	cont		- 	T_DIG		//	single edge on specified LINEs
+}									
+#macro  clock2_lines($lines){						//Clock lines twice:
+	@bit_flip($lines)	cont		- 	T_DIG		//	two edges on specified LINEs.
+	bit_flip($lines)	cont		- 	T_DIG		
+}
+#macro  clock2_lines_t($lines,$t){					//Clock lines twice, more slowly
+	@bit_flip($lines)	cont		- 	$t		//	two edges on specified LINES, delay T.
+	bit_flip($lines)	cont		- 	$t		
+}
+
+#macro  clock_pixels($pixels){						//Clock pixels:
+	@bit_flip($pixels)	cont		- 	T_DIG		//	single edge on specified PIXELs
+}									
+#macro  clock2_pixels($pixels){						//Clock pixels twice:
+	@bit_flip($pixels)	cont		- 	T_DIG		//	two edges on specified PIXELs.
+	bit_flip($pixels)	cont		- 	T_DIG		
+}
+#macro  clock2_pixels_t($pixels,$t){					//Clock pixels twice, more slowly
+	@bit_flip($pixels)	cont		- 	$t		//	two edges on specified PIXELs, delay T.
+	bit_flip($pixels)	cont		- 	$t
+}
+
+#macro  frame_start(){							//Frame start:
+	@bit_clr(LINES)		cont		-	T_DIG		//	zero the vertical register and clock onto row0
+	fsync()								
+	clock_lines(LINES)
+}
+#macro  line_start(){							//Line start:
+	@bit_clr(PIXELS)	cont		-	T_DIG		//	zero the horiz register and clock onto col0
+	lsync()								
+	clock_pixels(PIXELS)
+}
+#macro  origin(){							//Origin:
+	frame_start()							//	go to start of frame, start of line.
+	line_start()							
+}
+#macro  pre_origin(){ 							//Start frame, but don't clock onto 0,0.
+	fsync()								//This is wrong, use for experimentation only.
+	lsync()								
+}
+
+
+#macro  move_by_calculated_steps($dsteps0,$dbits0,$dsteps1,$dbits1,$dsteps2,$dbits2,$dsteps3,$dbits3,$dsteps4,$dbits4,$dsteps5,$dbits5,$dsteps6,$dbits6,$dsteps7,$dbits7,$sbits){	
+	lbl0:	__LOOP		$dsteps0				//Move to the desired 4 co-ordinate positions in the miniumum number of moves.
+		    clock2_bits	($dbits0)				//First, call origin(), then use clock_calc.php, then call this.
+		__ENDLOOP	lbl0					
+		@same	cont -	(2*short)				//The extra (2*short) is there to be stolen from, in the case of a zeroloop. 
+	lbl1:	__LOOP		$dsteps1				//"same" would be very wrong, except that we always toggle twice. So it's OK to squelch the warning.
+		    clock2_bits	($dbits1)
+		__ENDLOOP	lbl1
+		@same	cont - 	(2*short)
+	lbl2:	__LOOP		$dsteps2
+		    clock2_bits	($dbits2)
+		__ENDLOOP	lbl2		
+		@same	cont - 	(2*short)
+	lbl3:	__LOOP		$dsteps3
+		    clock2_bits	($dbits3)
+		__ENDLOOP	lbl3		
+		@same	cont - 	(2*short)
+	lbl4:	__LOOP		$dsteps4
+		    clock2_bits	($dbits4)
+		__ENDLOOP	lbl4
+		@same	cont - 	(2*short)
+	lbl5:	__LOOP		$dsteps5
+		    clock2_bits	($dbits5)
+		__ENDLOOP	lbl5		
+		@same	cont - 	(2*short)
+	lbl6:	__LOOP		$dsteps6
+		    clock2_bits	($dbits6)
+		__ENDLOOP	lbl6		
+		@same	cont - 	(2*short)
+	lbl7:	__LOOP		$dsteps7
+		    clock2_bits	($dbits7)
+		__ENDLOOP	lbl7		
+		@same	cont - 	(2*short)
+		clock_bits	($sbits)
+}

@@ -1,0 +1,15 @@
+/* Too many calls, and unable to return. What happens? */
+
+//Note that simulation will fail, but we can still compile. This does actually "work"
+//in that the pulseblaster keeps calling deeper into recursion, and doesn't appear to crash.
+//It's rather worse if we try to return out of a subroutine we aren't in to start with!
+
+//LABEL:	OUTPUT			OPCODE		ARG		LENGTH		//comment
+
+		0x1			cont 		-		1s
+lp1:		0x80			call		sub1		1s
+		0xffff			stop		-		-
+
+sub1:		0x100			cont		-		1s
+		0x8000			goto		lp1		1s		//We should RETURN here, not jump.
+

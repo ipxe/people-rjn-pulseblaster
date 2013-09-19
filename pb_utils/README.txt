@@ -10,6 +10,8 @@ pulseblaster.h
 ../driver
 	Other directory, with the pulseblaster kernel driver in it. Note that you need to run pb_driver-load.sh
 
+../pb_parse
+	Other directory, containing the high-level parser. 
 
 src/
 	The actual pulseblaster programs themselves.
@@ -128,4 +130,3 @@ README.txt, LICENSE.txt
 See also: 
  * This was written as part of my PhD InfraRed Camera system: http://www.richardneill.org/phd
  * There is a GIT tree at: http://git.ipxe.org/people/rjn/pulseblaster.git
- * There is also a parser, pb_parse in a parallel project.

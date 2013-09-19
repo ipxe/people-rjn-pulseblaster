@@ -1,0 +1,21 @@
+/*This is a test of the LOOP and ENDLOOP opcodes, with NESTING. This program ought to
+   a)Output 0x1	 for 5 seconds.
+   b)Loop 4 times:
+	i)Blink LED_7   3 times (quickly, first on, then off)
+	ii)Wait 2 seconds (with it off).	#turning on LED_15 for debugging.
+   c)ALL LEDs on (denote end of program) for 1 second, then
+   d)GOTO start
+*/
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		0x1		cont		-		5s		//LED 0
+
+lp1:		0x80		loop		4		short
+
+lp2:              0x80		loop		3		0.2s		//Flash LED 7.
+		  0x00		endloop		lp2		0.2s
+		0x8000		endloop		lp1		2s		//LED 7 off, 15 on.
+
+		0xffff		goto		start		1s

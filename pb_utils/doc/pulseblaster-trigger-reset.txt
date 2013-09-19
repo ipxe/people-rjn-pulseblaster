@@ -37,9 +37,6 @@ The opcodes do:
 
 
 
-
-
-
 HARDWARE
 --------
 
@@ -135,6 +132,5 @@ accepted.
 
   This behaviour of pre-triggering isn't necessarily a misfeature, it's just a source of some possible confusion.    
   
-[TODO: Does this pretriggering happen in STOP as well?  (I think not, because of requirment on HWRreset)]
-
+[TODO: Does this pretriggering happen in STOP as well?  (I think not, because of requirement on HWRreset)]
 

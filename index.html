@@ -1,42 +1,47 @@
-<!DOCTYPE HTML><html><head><meta charset="utf-8"><link rel="stylesheet" type="text/css" href="../style.css"><title>PulseBlaster Linux Driver and utilities</title></head><body class=program> 
+<!DOCTYPE HTML><html><head><meta charset="utf-8"><link rel="stylesheet" type="text/css" href="../style.css"><title>PulseBlaster Linux Driver, utilities and parser</title></head><body class=program> 
 <!-- IMPORTANT: this webpage is probably generated from a Makefile. Don't edit this; edit the source. -->
 
-<h1>PulseBlaster Linux Driver and utilities</h1>
+<h1>PulseBlaster Linux Driver, utilities and parser</h1>
 
 <h2>Introduction</h2>
 
 <p>The Spincore <a href="http://spincore.com/products/PulseBlaster/PulseBlaster-Programmable-Pulse-Generator.shtml">PulseBlaster</a> is a Programmable TTL Pulse Generator / Digital Word Generator and Timing Engine. We have written
-a GPL Linux driver for it, and some utilities.</p>
+a Linux driver for it, some utilities, and a parser/compiler/simulator. Everything is Free Software, under GNU GPL.</p>
 
-<p><b>Linux kernel driver</b>: works under 3.8, and we are currently working to get it accepted upstream. It creates entries in <tt>/sys</tt>, under <tt>/sys/class/PulseBlaster/</tt>, and has a very simple interface:
+<p><b>Linux kernel driver</b>: this works under 3.8, and we are currently working to get it accepted upstream. It creates entries in <tt>/sys</tt>, under <tt>/sys/class/PulseBlaster/</tt>, and has a very simple interface:
 to program the device, just cat the binary into the the <tt>program</tt> interface, and to start/stop/arm, just echo a 1 into the <tt>start/stop/arm</tt> interface.</p> 
 
-<p><b>Utilities</b>: pb_utils contains a set of C-programs which can control the PulseBlaster, assemble VLIW files, and are useful for diagnostics, testing and debugging. See below.</p>
+<p><b>Utilities</b>: pb_utils contains a set of C-programs which can control the PulseBlaster, assemble "Very long instruction word" (VLIW) files, and are useful for diagnostics, testing and debugging.</p>
 
-<p><b>Parser</b>: pb_parse is a high-level parser for the PulseBlaster. It is distributed as a <a href="../pb_parse/index.html">separate package</a>.
+<p><b>Parser</b>: pb_parse is a high-level parser for the PulseBlaster. It reads a high-level PBSRC format, and outputs VLIW for <tt>pb_asm</tt>. It can also <i>simulate</i> the PulseBlaster, writing a virtual "piano-roll", 
+or to a wavefile analyser (e.g. <a href="http://gtkwave.sourceforge.net/">GTKWave</a>. It can <i>prove</i> program correctness, because the PulseBlaster is not Turing-Complete.
+[This also facilitates a "hack" of combining 1-3 ordinary parallel-ports into a "Poor-man's PulseBlaster", albeit rather slow and jittery.]</p>
+
+<p><b>Overview:</b> Source-file (<tt>.pbsrc</tt>) -&gt; parser (<tt>pb_parse</tt>) -&gt; assembly file (<tt>.vliw</tt>) -&gt; assembler (<tt>pb_asm</tt>) -&gt; binary file (<tt>.bin</tt>) -&gt; programmer (<tt>pb_prog</tt>) -&gt; 
+pulseblaster hardware (<tt>/sys/class/pulseblaster</tt>) -&gt; trigger (<tt>pb_start</tt>).</p>
+
+<p><b>Example 1:</b> This is an example of the type of program one can write, which is actually <i>useful</i>: <a href="pixel_characterise.pbsrc.txt">pixel_characterise.pbsrc</a>, <a href="hawaii.h.txt">hawaii.h</a>, 
+<a href="macros.pbsrc.txt">macros.pbsrc</a>, <a href="clock_calc.php.txt">clock_calc.php</a>, <a href="README2.txt">README.txt</a></p>
+
+<p><b>Example 2:</b> This is a demonstration of the <a href="walking_5leds_5Hz.demo.html">simulation output</a> (piano-roll mode). The source is a simple 2-of-5 walking LEDs program (<a href="walking_5leds_5Hz.pbsrc.txt">walking_5leds_5Hz.pbsrc</a>).
 
 
-<h2>Supported Devices</h2>
+<h2>Driver (Linux kernel, pulseblaster.ko)</h2>
 
 <p>This supports the PulseBlaster SP1 PB24-100-32k board, with PCI vendor/device ID of 0x10e8:0x5920.<br>
 The newer SP2 boards have the same vendor id (0x10e8) and device IDs (0x8879 or 0x8852; both being functionally identical).<br>
-[Although we haven't an SP2 board to test with, if the protocol is the same, it will suffice to add the IDs into the <tt>pb_pci_tbl</tt> struct in <tt>PulseBlaster.c</tt>.]<br>
-The kernel module is named <tt>pulseblaster.ko</tt>.</p>
+[Although we haven't an SP2 board to test with, if the protocol is the same, it will suffice to add the IDs into the <tt>pb_pci_tbl</tt> struct in <tt>PulseBlaster.c</tt>.]</p>
 
-<h2>Installation</h2>
+<p>The kernel module, <tt>pulseblaster.ko</tt>, creates entries in <tt>/sys/class/pulseblaster/pulseblaster0/</tt> as follows:<ul>
+ <li><tt>stop</tt>, <tt>start</tt>, <tt>arm</tt>, <tt>continue</tt> &nbsp;-&nbsp; echo a "1" to this to trigger the corresponding action.<br>
+ <li><tt>program</tt> &nbsp;-&nbsp; write a raw binary file here to program the PulseBlaster.
+ </ul>
 
-<ul>
-<li>To install, simply: <tt>make && sudo make install</tt>. Then run, for example <tt>pb_freq_gen</tt>
-<li>It is also recommended to install <a href="../pb_parse/index.html">pb_parse</a>.
-<li>This is Free Software released under the GNU GPL v3+ (except the kernel driver which is v2).  Please feel free to take it, modify it, package it etc.
-<li>Authors: Richard Neill and Michael Brown. Do ask if you would like further information and assistance. 
-</ul>
-
-
-<h2>pb_utils</h2>
+  
+<h2>pb_utils (low-level control and debugging)</h2>
 
 <ul>
-<li><tt>pb_asm</tt>, <tt>pb_prog</tt> &nbsp;-&nbsp; assemble a VLIW file into binary and program it into the PulseBlaster. (see also <tt>pb_parse</tt>).
+<li><tt>pb_asm</tt>, <tt>pb_prog</tt> &nbsp;-&nbsp; assemble a VLIW file into binary and program it into the PulseBlaster.
 <li><tt>pb_stop</tt>, <tt>pb_start</tt>, <tt>pb_cont</tt>, <tt>pb_arm</tt>, <tt>pb_stop-arm</tt> &nbsp;-&nbsp; stop/start/arm/continue/stop-and-rearm the PulseBlaster.
 <li><tt>pb_init</tt>, <tt>pb_zero</tt> &nbsp;-&nbsp; directly set the PulseBlaster's outputs.
 <li><tt>pb_vliw</tt> &nbsp;-&nbsp; generates an example/demo VLIW file. (see also <tt>vliw&nbsp;(5)</tt>)
@@ -46,17 +51,86 @@ The kernel module is named <tt>pulseblaster.ko</tt>.</p>
 <li><tt>pb_manual</tt> &nbsp;-&nbsp; manually, interactively, control the PulseBlaster outputs. Useful for debugging whatever it's connected to.
 </ul> 
 
+<h2>pb_parse (high-level parser and simulator)</h2>
 
-<h2>VLIW format</h2>
+<p>These are the features of pb_parse. It is basically a complicated pre-processor, that fakes as many desired features as possible (eg bit-at-a-time instructions and macros).</p>
 
-<p>The basic human-readable "assembly" format is <a href="vliw.txt">vliw</a>. This is converted (by <tt>pb_asm</tt>) to a <a href="raw.txt">raw</a> (binary) file, which can be loaded with <tt>pb_prog</tt>.<br>
-(There is also a much higher-level abstraction, <tt>pbsrc</tt>, which is compiled to .vliw.)</p>
+<ul>
+<li>Outputs and arguments may be specified in binary, hex, or base-10. 
+<li>Lengths may be specified in ticks, or in units of ns,us,ms,s,ks,min...weeks.
+<li>Where an argument is irrelevant, a '-' is used to make this explicit.
+<li>Labels can be used, instead of numeric addresses.
+<li>Comments are: '//', '/* ... */'.
+<li>Support for #include, #define [#what, #default:, #if, #ifnot].
+<li>Scientific/experimental parameters can be easily varied with -D (and #if/#ifnot).
+<li>Executable includes (#execinc) allow dynamic code generation and complex calculations.
+<li>Outputs can be specified as bitwise changes to the previous values (or SAME).
+<li>Inlined #macros (with parameter substitution), <i>almost</i> acting like functions.
+<li>Use of #set simplifies use of active-low logic on the peripheral.
+<li>Debugging features: #assert, #hwassert, #echo, #endhere.
+<li>"Do what I mean" fixes for infelicities in the instruction set:<ul>
+  <li>calculates ARG for longdelay if specified as 'auto'
+  <li>promotes cont or demotes longdelay if length is out of range.
+  <li>zeroloop: loop (0) converted to goto (addr_of(endloop)+1).
+  <li>opcode macros: __call/goto/return/loop/endloop can appear instantaneous.
+  </ul>
+<li>Case-sensitive (except opcode-names). Alternate opcode mnemonics (eg GOTO vs BRANCH).
+<li>Allows STOP to be overloaded (set outputs). Adds NOP.
+<li>VLIW-reordering: opcode,arg may be written before/inside/after out...len, for clarity.
+<li>Mathematical operators: *,-,+,/,%,(,)    Bitwise operators: |,&,~,^,<<,>>
+<li>Comparison operators: ==,!=,<,>,<=,>=    Logical: &&,||,!,?,:    Error-control:  @
+<li>Detailed error checking, with helpful messages. Ensures that all instructions are valid.
+<li>Simulation of the hardware, to verify the program. Options:<ul>
+   <li>Optimised simulation (full proof of program correctness),
+   <li>Output on virtual LEDs, parallel ports, VCD file, and target-simulation logfile.
+   <li>Real-time, measurement, single-step, or manual triggering.
+   </ul>
+<li>Output Formats: pulseblaster (.vliw, .bin), simulation (.pbsim, .vcd), byte-stream.
+</ul>
 
-<p>These are the details of the PulseBlaster <a href="pulseblaster-opcodes.txt">opcodes</a>. Some specific details are for <a href="loops.txt">loops</a>, <a href="longdelay.txt">long-delay</a>, <a href="wait.txt">wait</a>, and <a href="latencies.txt">latencies</a>.<br>
-<i>Many of the quirks are abstracted away by pb_asm and pb_parse. For example, <tt>loop(n)</tt> may have n=1 and n=0; and <tt>cont</tt> / <tt>longdelay</tt> are implicitly promoted/demoted.</i></p>
+<p>Because the PB isn't Turing-Complete, the advanced hacks must be evaluated at compile-time, not run-time. For more details, see the man-page and some of the examples.<br>
+As an example of the fun to be had with preprocessor abuse, this contrived line is legal syntax, in which, #define, #ifnot, and bit_flip() are all effected at compile-time.<br>
+  <tt>#define JULY  #ifnot(HERRING)  bit_flip(PENGUIN) goto ANTARCTICA ALL_SUMMER</tt>
+</p>
+
+
+
+<h2>VLIW format (very long instruction word)</h2>
+
+<p>The basic human-readable "assembly" format is <a href="vliw.txt">vliw</a>. This is converted (by <tt>pb_asm</tt>) to a <a href="raw.txt">raw</a> (binary) file, which can be loaded with <tt>pb_prog</tt>. 
+The vliw format consists of 4 columns (delimited by whitespace and with an optional //comment), in the order: Output, Opcode, Arg, Length. Output and Length are numbers (dec/hex). Opcode is a string eg "cont" or "goto". 
+Arg is either a number, or a "-" where it is not required. Vliw programs are not especially easy to write: for example, time-units must be in ticks, addresses must be literal, and there is no support for macros. </p>
+
+<p>These are the details of the PulseBlaster <a href="pulseblaster-opcodes.txt">opcodes</a>. Some specific details are for <a href="loops.txt">loops</a>, <a href="longdelay.txt">long-delay</a>, <a href="wait.txt">wait</a>, and <a href="latencies.txt">latencies</a>.</p>
 
 <p>Triggering (hardware and software) behaviour is described <a href="pulseblaster-trigger-reset.txt">here</a>.</p>
 
+<p>Here is a simple <a href="example.vliw.txt">example.vliw</a> file; there are many more in the <tt>vliw_examples</tt> directory.</p>
+
+<h2>PBSRC format (pulseblaster source)</h2>
+
+<p>The <a href="pbsrc.txt">pbsrc language</a> and associated compiler abstracts away some of the quirks of the device, and adds (or fakes) extra features such as bit-at-a-time instructions. [It will emit an error or a warning in cases
+where these are used inappropriately.]</p>
+
+<p>For example, <a href="loops.txt">loop&nbsp;(n)</a> may have n=1 and n=0, and <a href="longdelay.txt">cont&lt;--&gt;longdelay</a> are implicitly promoted/demoted. It's also possible to have 
+<a href="execinc.txt">executable-includes</a>, a hack which allows much greater flexibility of dynamically-generated code.</p>
+
+<p>The parser can also <a href="simulation.txt">simulate</a> the PulseBlaster, which allows for program validation (will it halt or run forever? does it ever exceed the maximum stack depths?) and full or partial simulation.
+The output data can be in <a href="pbsim.txt">pbsim</a> format (useful for hawaiisim), or in <a href="vcd.txt">vcd</a> (value change dump) format for <a href="http://gtkwave.sourceforge.net/">GTKWave</a>. It can also 
+write directly to a <a href="parport-output.txt">parallel port</a> (for the "poor-man's PulseBlaster").</p>
+
+<p>Here is an <a href="example.pbsrc.txt">example.pbsrc</a> file; there are many more in the <tt>pbsrc_examples</tt> directory.</p>
+
+<h2>Installation</h2>
+
+<ul>
+<li>Prerequisites: for pb_parse, install <a href="http://php.net/manual/en/features.commandline.php">PHP-cli</a> (at least version 5.2). pb_utils just needs <tt>GCC</tt>.
+<li>To install, simply: <tt>make &amp;&amp; sudo make install</tt>. Then run, for example <tt>pb_freq_gen</tt>.
+<li>In the <tt>pb_parse</tt> directory, run <tt>make examples</tt> Then run, for example <tt>pb_test-pbsrc-walk5</tt>.
+<li>To install just one of the driver, pb_utils, or pb_parse, just run <tt>make &amp;&amp; sudo make install</tt> in the corresponding subdirectory.
+<li>This is Free Software released under the GNU GPL v3+ (except the kernel driver which is v2).  Please feel free to take it, modify it, package it etc.
+<li>Authors: Richard Neill and Michael Brown. Do ask if you would like further information and assistance. 
+</ul>
 
 
 <h2>Notes</h2>
@@ -66,8 +140,11 @@ Also, the language is <i>not</i> Turing-complete: this makes it very predictable
 
 <p>We also created some custom additions: external clock input and triggering via an RS-232 port: <a href="hardware-modifications.txt">details</a>.</p>
 
+<p>Bugs: pb_parse is a very long PHP program, containing some 5368 lines and 130 Regular Expressions, and needing significant RAM for larger programs. It hasn't yet fulfilled Zawinski's law, though the <tt>-M</tt> option is reserved.
+Also, as the PBSRC language is based on VLIW, it uses whitespace as the delimiter, which, with hindsight, isn't ideal</p>
+
 <p>This was originally written as part of my <a href="http://www.richardneill.org/phd">PhD Infrared Camera system</a>. It should be applicable for wider usage.<br>
-<i>Please ignore references to "ircam" (the IR-camera system).</i></p>
+A real-world example of the system is in <tt>hawaii_characterise.sh</tt> distributed in the <a href="../hawaii_sensor">hawaii_sensor</a> section: PulseBlaster code is dynamically generated to run a series of experiments on a detector.</p>
 
 
 <h2>Download</h2>
@@ -82,9 +159,13 @@ Also, the language is <i>not</i> Turing-complete: this makes it very predictable
  <!-- NB links are correct wrt the www/ directory after 'make www', not necessarily in the source. -->
 <a href="README.txt">README.txt</a><br>
 <a href="vliw.5.html">vliw.5</a><br>
+<a href="pbsrc.5.html">pbsrc.5</a><br>
+<a href="pbsim.5.html">pbsim.5</a><br>
 <a href="pb_utils.1.html">pb_utils.1</a><br>
+<a href="pb_parse.1.html">pb_parse.1</a><br>
 <a href="pb_freq_gen.1.html">pb_freq_gen.1</a><br>
 <a href="pb_manual.1.html">pb_manual.1</a><br>
+<a href="pb_parport-output.1.html">pb_parport-output.1</a><br>
 </p>
 
 

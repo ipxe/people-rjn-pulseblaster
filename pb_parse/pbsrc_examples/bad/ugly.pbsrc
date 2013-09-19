@@ -1,0 +1,32 @@
+/* 
+   This is a really really ugly cross-jumping program. Awful style, yet it is correct. 
+   It's designed to demonstrate why the parser cannot perfectly validate loops without simulating
+   them, and rather than triggering a fatal_error, must say "This is probably an error, but *might* be deliberate."
+   Simulation is needed to prove it. In this case, the code runs successfully, and outputs the following sequence:
+
+   Output is:  1,2,6  1,2,6  7,8,3,4  7,8,3,4  7,8,3,4  7,8,3,4  5
+
+   See also simulation.txt and "DOCREFERENCE: LOOP-CHECK" in pb_parse.php
+
+   This is in the bad/ directory, because it pb_asm rejects it (pb_asm is too cautious), and 'make examples_bad' doesn't assemble.
+*/
+
+
+
+//LABEL		OUTPUT		OPCODE		ARG		LENGTH		//COMMENT
+
+x:		0x1		loop		3		10		//Endloop (1) jumps over another endloop. Ugly.
+		0x2		goto 		jmp		10		
+
+y2:		0x03		cont		-		10
+		0x04		endloop		y		10		//(2)
+		0x05		stop		-		-
+
+jmp:		0x06		endloop		x		10		//(1)
+y:		0x07		loop 		4		10		//Endloop (2) comes before its own loop. Very ugly!
+		0x08		goto		y2		10
+
+
+
+
+

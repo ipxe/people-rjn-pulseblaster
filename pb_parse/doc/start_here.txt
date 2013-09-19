@@ -1,0 +1,8 @@
+Start here:
+
+* To use the pb_parse "compiler", run "pb_parse -h"
+
+* To learn about the pbsrc "pulseblaster source" language, read pbsrc.txt
+
+
+

@@ -1,0 +1,8 @@
+/* This is an example of what happens when the program falls off the end. What does it do? */
+/* Observably, the pulseblaster seems to STOP. */
+
+//LABEL:	OUTPUT			OPCODE		ARG		LENGTH		//comment
+
+		0x1			cont 		-		1s
+		0x80			cont 		-		2s
+		0x100			cont 		-		2s

@@ -1,0 +1,21 @@
+//Output a 5-led walk. 5Hz overall speed (40 ms each group). LEDs are on in pairs. 00011 etc.
+
+//Definitions:
+
+#define		T	40ms
+
+#define 	Group1	0x31_8c_63	
+#define		Group2	0x63_18_c6
+#define 	Group3	0xc6_31_8c
+#define 	Group4	0x8c_63_18
+#define 	Group5	0x18_c6_31
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		Group1		cont		-		T
+		Group2		cont		-		T
+		Group3		cont		-		T
+		Group4		cont		-		T
+		Group5		GOTO		start		T
+

@@ -1,0 +1,12 @@
+The pulseblaster hardware has two restrictions on WAIT opcodes:
+
+ a) WAIT may not be the first instruction.
+ b) If WAIT is the 2nd instruction, the 1st instruction must have a length of at least 11 ticks.
+
+
+The values are defined in ../../pb_utils/pulseblaster.h, via pb_print_config
+For more details, read ../../pb_utils/doc/wait.txt .
+
+
+Don't worry too much about this - the parser will catch this error.
+

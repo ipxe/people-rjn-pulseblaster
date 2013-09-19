@@ -1,0 +1,91 @@
+IDEAS:
+======
+
+See also the TODOs at the top of pb_parse.php
+
+
+FULL ABSTRACTION
+----------------
+
+One of the problems with the PB is that it can't actually perform abstractions such as
+
+  for (i=0;i<100;i++){
+	output a, delay b
+	output c, delay d
+  }
+
+without difficulty, because the for-loop itself takes time, and (worse) must assert outputs.
+This is very different to the C-abstraction in which mere keywords don't take time or change the values.
+
+
+An elegant workaround would be to write a completely different style of program, explaining what the programmer
+really WANTs to do, then generate the pbsim file, then work backwards from that to get a pulseblaster program.
+
+The trivial case (where the pbsim is < 32k lines) would be very easy.
+
+How much harder would the more complex one be?
+  => Not trivial - it's essentially de-compiling a program from its outputs.
+
+Alternatively, could we implement perfect "for" constructs? The mapping from a C-style loop (as above)
+to a PB loop isn't hard.
+
+
+
+
+MACRO OPTIONAL (DEFAULT) PARAMETERS
+-----------------------------------
+
+It might be helpful to allow macros of this form:
+
+#macro  do_something ($x=42){
+	$x  cont - short
+}
+
+where the macro call can include a value for $x or not, i.e. call as "do_something()" or "do_something(31)".
+
+It pure syntactic sugar, but rather useful. Nice to have; would require some rather horrible regexp hacking and testing in pb_parse!
+
+
+
+
+EXECINC (now implemented)
+-------------------------
+
+In some cases, the .pbsrc language simply isn't expressive enough. It would be useful to be able to get a '#define' by calling another program.
+For example, one might #define X  as either 3 or 4, and then want to have the value of Y conditional upon whether X==3.
+
+*  One way to do this is to simply #include a header, and generate this before calling pb_parse.
+*  Another way is to use the ternary operator '?' which is already supported in expressions.
+
+The idea is:
+
+	#execinc  progname [flags]  ARG1  ARG2  ARG3 ....
+
+where #execinc is a keyword (already reserved), progname is an external binary, and ARG_n are literals, (possibly expressions), and #defined constants.
+
+This is especially useful when combined with the ability to pass #defines on the command-line with -D.
+
+However, the implementation poses a potential security risk because it runs arbitrary code at compiletime. Normally, merely *compiling* untrusted code shouldn't
+expose one to a security vulnerability, especially given that the compiled code runs on the Pulseblaster, yet this *runs* on the host machine. 
+The execinc'd program can do anything. For example, consider a pbsrc file containing:
+       #execinc   rm   -rf  /home/example
+
+=> Is there a safe-version of PHP that has NO ability to use the filesystem?  (safe-mode isn't right, and is deprecated; bash -r isn't either, can't chroot).
+   One option might be runkit.sandbox.  
+
+=> Note: there's not point in an incomplete workaround (eg the execinc may not contain "rm"), as a shell-user already shouldn't make really stupid errors. 
+   Need to protect against malice. If we could find a really restricted PHP shell, there would be justification for restricting the binary to PHP only.
+   "Safe mode" doesn't help, because that protects users from each other; we want to protect user from himself.
+
+(also, can set  $ENABLE_EXECINC to false)
+
+=> Current safeguard: require -X to enable.
+
+
+
+ENHANCEMENTS
+------------
+
+For the simulation replay log and VCDs, we support gtkwave. Consider also SUMP?: http://www.sump.org/projects/analyzer/client/
+
+

@@ -1,0 +1,152 @@
+/* Example program: simple Hawaii chip driver. Reset every line, then wait, then read every pixel */
+
+/* Hawaii definitions for the Pulseblaster. (c.f. hawaiisim/src/hawaiisim.h ). */
+
+/* Pulseblaster: check that it ticks at 10 ns, as expected */
+#hwassert PB_TICK_NS  10
+
+/* Hawaii physical layout */
+#define NUM_ROWS 	512
+#define NUM_COLS 	512
+#define QUADS	 	4
+
+/* Pulseblaster lines, as we have them connected. (Words, with this bit set) */
+#define PIXEL0		0x1	//Bit 0
+#define PIXEL1		0x2	//Bit 1
+#define PIXEL2		0x4	//Bit 2
+#define PIXEL3		0x8	//Bit 3
+
+#define LINE0  		0x10	//Bit 4
+#define LINE1  		0x20	//Bit 5
+#define LINE2		0x40	//Bit 6
+#define LINE3	  	0x80	//Bit 7
+
+#define READ    	0x100	//Bit 8   (common for all quadrants)
+#define RESETB  	0x1000	//Bit 12  (common for all quadrants)
+#define LSYNC   	0x2000	//Bit 13  (common for all quadrants)
+#define FSYNC   	0x4000	//Bit 14  (common for all quadrants)
+#define ADC		0x8000	//Bit 15  (common for all quadrants)
+#define FAKEADC		0x800000 //Bit 23 (fake ADC read).
+
+#define PIXELS  	PIXEL0|PIXEL1|PIXEL2|PIXEL3	//grouped bits (nested define)
+#define LINES   	LINE0|LINE1|LINE2|LINE3
+
+#define T		1us
+#define T_INTEGRATE	10s
+#define T_ADC		5us
+
+/* Line direction: re-define directions, so we can treate everything as active-high/rising-edge-triggered. */
+#set OUTPUT_BIT_INVERT  RESETB|LSYNC|FSYNC|ADC
+
+
+#macro 	fsync(){
+	@bit_set(FSYNC)		cont		-	T
+	bit_clear(FSYNC)	cont		-	T
+}
+
+#macro 	lsync(){
+	bit_set(LSYNC)		cont		-	T
+	bit_clear(LSYNC)	cont		-	T
+}
+
+#macro 	reset_enable(){
+	@bit_set(RESETB)	cont		-	T
+}
+
+#macro 	reset_disable(){
+	@bit_clr(RESETB)	cont		-	T
+}
+
+#macro read_enable(){
+	@bit_set(READ)		cont		-	T
+}
+
+#macro read_disable(){
+	@bit_clear(READ)	cont		-	T
+}
+
+#macro  adc(){
+	@bit_set(ADC|FAKEADC)	cont		-	T_ADC/2
+ 	bit_clear(ADC|FAKEADC)	cont		-	T_ADC/2
+}
+
+#macro  frame_start(){
+	@bit_clear(LINES)	cont		-	T
+	fsync()
+	clock_lines(LINES)
+}
+
+#macro  line_start(){
+	@bit_clear(PIXELS)	cont		-	T
+	lsync()
+	clock_pixels(PIXELS)
+}
+
+#macro  clock_lines($lines){
+	@bit_flip($lines)	cont		- 	T
+}
+
+#macro  clock_pixels($pixels){
+	@bit_flip($pixels)	cont		- 	T
+}
+
+
+
+//LABEL:	OUT/OUT/OPC		OPC/LEN/ARG	ARG/OPC/OUT	LEN/ARG/LEN	//comment
+
+		0x00			T		cont		-
+
+
+//RESET
+		frame_start()
+
+		reset_enable()
+lp_rst:		__LOOP			NUM_ROWS/2
+		clock_lines(LINES)
+		clock_lines(LINES)				//do this twice to get outputs back where we started.
+		__ENDLOOP		lp_rst
+		reset_disable()
+
+
+//Integrate
+		cont		-	@same		T_INTEGRATE
+
+
+//ENABLE READ
+		read_enable()
+
+
+//READ OUT EACH PIXEL IN THE QUAD.
+		frame_start()
+lp_rows:	__LOOP			NUM_ROWS/2
+
+		line_start()					//do this twice to get outputs back where we started.(wrt clock_lines)
+lp_cols:	__LOOP			NUM_COLS/2
+
+		adc()
+		clock_pixels(PIXELS)				//do this twice to get outputs back where we started.(wrt clock_pixels)
+		adc()
+		clock_pixels(PIXELS)
+
+		__ENDLOOP		lp_cols
+
+
+		clock_lines(LINES)
+
+		line_start()
+lp_cols2:	__LOOP			NUM_COLS/2
+
+		adc()
+		clock_pixels(PIXELS)
+		adc()
+		clock_pixels(PIXELS)
+
+		__ENDLOOP		lp_cols2
+
+		clock_lines(LINES)
+		__ENDLOOP		lp_rows
+
+
+//END
+		STOP			-			-		-
+

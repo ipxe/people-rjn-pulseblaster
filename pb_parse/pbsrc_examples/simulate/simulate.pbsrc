@@ -1,0 +1,180 @@
+/* Example program: simple Hawaii chip driver. Reset every line, then wait, then read every pixel */
+/* BUT, in order to keep the simulation fast (this is just an example!), reduce the number of loops: make the array just 64*64 */
+/* Also, the integration time is much reduced, to make the wave display more interesting. */
+
+/* Hawaii connection and timing definitions for the Pulseblaster. (c.f. hawaiisim/src/hawaiisim.h ). */
+
+/* Pulseblaster: check that it ticks at 10 ns, as expected */
+#hwassert PB_TICK_NS  10
+
+/* Labels for the variables in the VCD file */
+#vcdlabels  ADC,FSync, LSync,ResetB,-,-,-,Read, Line3,Line2,Line1,Line0, Pixel3,Pixel2,Pixel1,Pixel0
+
+
+/* Hawaii physical layout */
+#define NUM_ROWS 	64	//Really 512, see above
+#define NUM_COLS 	64	//Really 512, see above
+#define QUADS	 	4
+
+/* Pulseblaster lines, as we have them connected. (Words, with this bit set) */
+#define PIXEL0		0x1	//Bit 0
+#define PIXEL1		0x2	//Bit 1
+#define PIXEL2		0x4	//Bit 2
+#define PIXEL3		0x8	//Bit 3
+
+#define LINE0  		0x10	//Bit 4
+#define LINE1  		0x20	//Bit 5
+#define LINE2		0x40	//Bit 6
+#define LINE3	  	0x80	//Bit 7
+
+#define READ    	0x100	//Bit 8   (common for all quadrants)
+			//200   //Bit 9,  unused
+			//400	//Bit 10, unused
+			//800	//Bit 11, unused
+#define RESETB  	0x1000	//Bit 12  (common for all quadrants)
+#define LSYNC   	0x2000	//Bit 13  (common for all quadrants)
+#define FSYNC   	0x4000	//Bit 14  (common for all quadrants)
+#define ADC		0x8000	//Bit 15  (common for all quadrants)
+
+#define PIXELS  	PIXEL0|PIXEL1|PIXEL2|PIXEL3	//grouped bits (nested define)
+#define LINES   	LINE0|LINE1|LINE2|LINE3
+
+
+#define HSTART		RESETB|LSYNC|FSYNC|ADC		//"Safe" start point.
+
+
+/* Clock periods */
+#define T_DIG		100ns	//Digital clock period. (FSync.LSync,Pixels,Lines)
+#define T_RESET		1us	//Reset length. (ResetB)
+#define T_READSETUP	1us	//Setup time on READ clock.
+#define T_INTEGRATE	10ms	//Really 10s, see above.//Integration time.
+#define T_ADC		5us	//ADC time (whole cycle at 200 ksps).
+
+
+/* Clock macros. Include hawaii.h first. */
+
+#macro 	fsync(){
+	@bit_clr(FSYNC)		cont		-	T_DIG		//Do an FSync
+	bit_set(FSYNC)		cont		-	T_DIG
+}
+#macro 	lsync(){
+	bit_clr(LSYNC)		cont		-	T_DIG		//Do an LSync
+	bit_set(LSYNC)		cont		-	T_DIG
+}
+
+
+#macro 	reset_enable(){
+	@bit_clr(RESETB)	cont		-	T_RESET		//Enable Reset
+}
+#macro 	reset_disable(){
+	@bit_set(RESETB)	cont		-	T_DIG		//Disable Reset
+}
+
+
+#macro read_enable(){
+	@bit_set(READ)		cont		-	T_READSETUP	//Enable Reads
+}
+#macro read_disable(){
+	@bit_clr(READ)		cont		-	T_DIG		//Disable Reads
+}
+
+
+#macro  adc(){
+	@bit_clr(ADC)		cont		-	T_ADC/2		//Do an ADC cycle.
+ 	bit_set(ADC)		cont		-	T_ADC/2
+}
+
+
+#macro  frame_start(){
+	@bit_clr(LINES)		mark		-	T_DIG		//Frame start:
+	fsync()								//	zero the vertical register and clock onto row0
+	clock_lines(LINES)
+}
+#macro  line_start(){
+	@bit_clr(PIXELS)	cont		-	T_DIG		//Line start:
+	lsync()								//	zero the horiz register and clock onto col0
+	clock_pixels(PIXELS)
+}
+
+
+#macro  clock_lines($lines){
+	@bit_flip($lines)	cont		- 	T_DIG		//Clock lines:
+}									//	single edge on specified LINEs
+#macro  clock_2lines($lines){
+	@bit_flip($lines)	cont		- 	T_DIG		//Clock lines twice:
+	bit_flip($lines)	cont		- 	T_DIG		//	two edges on specified LINEs.
+}
+#macro  clock_2lines_time($lines,$t){
+	@bit_flip($lines)	cont		- 	$t		//Clock lines twice, more slowly
+	bit_flip($lines)	cont		- 	$t		//	two edges on specified LINES, delay T.
+}
+
+
+#macro  clock_pixels($pixels){
+	@bit_flip($pixels)	cont		- 	T_DIG		//Clock pixels:
+}									//	single edge on specified PIXELs
+#macro  clock_2pixels($pixels){
+	@bit_flip($pixels)	cont		- 	T_DIG		//Clock pixels twice:
+	bit_flip($pixels)	cont		- 	T_DIG		//	two edges on specified PIXELs.
+}
+#macro  clock_2pixels_time($pixels,$t){
+	@bit_flip($pixels)	cont		- 	$t		//Clock pixels twice, more slowly
+	bit_flip($pixels)	cont		- 	$t		//	two edges on specified PIXELs, delay T.
+}
+
+
+//LABEL:	OUT/OUT/OPC		OPC/LEN/ARG	ARG/OPC/OUT	LEN/ARG/LEN	//comment
+		HSTART			T_DIG		cont		-
+
+
+//RESET
+		frame_start()
+
+		reset_enable()
+lp_rst:		__LOOP			NUM_ROWS/2
+		clock_2lines_time(LINES, T_RESET)			//do this twice to get outputs back where we started.
+		__ENDLOOP		lp_rst
+		reset_disable()
+
+
+//Integrate
+		cont		-	@same		T_INTEGRATE
+
+
+//ENABLE READ
+		read_enable()
+
+
+//READ OUT EACH PIXEL IN THE QUAD.
+		frame_start()
+lp_rows:	__LOOP			NUM_ROWS/2
+
+		line_start()					//do this twice to get outputs back where we started.(wrt clock_lines)
+lp_cols:	__LOOP			NUM_COLS/2
+
+		adc()
+		clock_pixels(PIXELS)				//do this twice to get outputs back where we started.(wrt clock_pixels)
+		adc()
+		clock_pixels(PIXELS)
+
+		__ENDLOOP		lp_cols
+
+
+		clock_lines(LINES)
+
+		line_start()
+lp_cols2:	__LOOP			NUM_COLS/2
+
+		adc()
+		clock_pixels(PIXELS)
+		adc()
+		clock_pixels(PIXELS)
+
+		__ENDLOOP		lp_cols2
+
+		clock_lines(LINES)
+		__ENDLOOP		lp_rows
+
+
+//END
+		@same			STOP		-	-

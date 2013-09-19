@@ -1,0 +1,22 @@
+<?php
+/* This is an example of the execinc code. This file should not be executable; it will be invoked with /usr/bin/php -f. */
+
+/* Anything sent to STDERR is passed directly through to pb_parse's stderr. */
+fprintf (STDERR, "#execinc: ARGs are: ".implode(",  ",$argv)."\n");
+
+/* Args are here. */
+$x = $argv[1];
+$y = $argv[2];
+
+
+/* Do calculations. */
+$d = $y;
+$e = $x * $y;
+
+/* Print output. Can be any pbsrc code; usually a list of #defines, on stdout. */
+echo "#define  D  $d\n";
+echo "#define  E  $e\n";
+
+/* Must exit 0 on success. */
+exit (0);
+?>

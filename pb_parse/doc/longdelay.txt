@@ -1,0 +1,15 @@
+The pulseblaster hardware does something rather daft with the longdelay arg (it's off-by-two).
+The parser/programmer abstracts this away, therefore, the user need only care that:
+	
+	1)Longdelay (LENGTH,ARG) results in a delay of  (length*arg).
+
+	2)Longdelay's ARG must be > 0.  i.e. ARG can never be zero, which would be a stupid thing to do in any case.
+	If this is violated, the parser will emit a fatal error.
+
+
+The parser uses the DWIM process to "demote" a Longdelay with ARG=1 into a cont.
+The actual subtraction is done *after* the parser stage, by pb_prog, in function pb_write_vliw().
+The values are defined in ../../pb_utils/pulseblaster.h, via pb_print_config
+For more details, read ../../pb_utils/doc/longdelay.txt . But you really don't need to care!
+
+

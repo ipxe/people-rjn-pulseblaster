@@ -1,0 +1,27 @@
+# pb_parse(1) completion
+#
+have pb_parse &&
+_pb_parse()
+{
+        local cur
+
+        COMPREPLY=()
+        cur=${COMP_WORDS[COMP_CWORD]}
+        prev=${COMP_WORDS[COMP_CWORD-1]}
+
+        if [[ "$cur" == -* ]]; then
+                COMPREPLY=( $( compgen -W '-a -b -c -d -D -e -f -h -i -j -k -l -L -m -n -o -p -q -Q -r -s -t -u -v -V -w -x -y -X -z' -- $cur ) )
+        else
+		if [ $prev == -i ]; then
+			_filedir 'pbsrc'
+		elif [ "$prev" == -o ]; then
+			_filedir 'vliw'
+		elif [ "$prev" == -g ]; then
+			_filedir 'pbsim'
+		elif [ "$prev" == -G ]; then
+			_filedir 'vcd'
+		fi
+        fi
+} &&
+
+complete -F _pb_parse $filenames pb_parse

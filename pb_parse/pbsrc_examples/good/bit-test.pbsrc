@@ -1,0 +1,24 @@
+/* This is a test of bit operations  */
+
+/* This tests the parser rather than the device, so read the .vliw file */
+
+//LABEL:	OUTPUT			OPCODE	ARG	LENGTH	//comment
+
+		0x1			cont	-	10	// 0x1
+		bit_set(0xf0)		cont	-	10	// 0xf1
+		bit_clr(0x1)		cont	-	10	// 0xf0
+		bit_and(0xe0)		cont	-	10	// 0xe0
+		bit_xor(0xff)		cont	-	10	// 0x1f
+		bit_xnor(0xfffff8)	cont	-	10	// 0x18
+		bit_nand(0xf0)		cont	-	10	// 0xffffef
+		bit_nor(0xf022)		cont	-	10	// 0x10
+		bit_add(0x21)		cont	-	10	// 0x31
+		bit_sub(0x12)		cont	-	10	// 0x1f
+		bit_bus(0xff)		cont	-	10	// 0xe0
+
+		bit_rlf(22)		cont	-	10	// 0x38
+		bit_rrf(1)		cont	-	10	// 0x1c
+		bit_slc(21)		cont	-	10	// 0x800000
+		bit_sls(2)		cont	-	10	// 0x3
+		bit_srs(1)		cont	-	10	// 0800001
+		bit_src(8)		cont	-	10	// ff8000

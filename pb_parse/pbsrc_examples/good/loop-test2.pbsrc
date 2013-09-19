@@ -1,0 +1,35 @@
+/*This is a test of the LOOP and ENDLOOP opcodes.
+
+This program ought to
+   a)Output 0x1	 for 3 seconds.
+   b)Loop exactly 5 times:
+	Output 0x80 for 1 seconds
+	Output 0x100 for 1 seconds
+   c)GOTO start
+   d)Repeat.
+*/
+
+//Note that both ENDLOOP and LOOP execute on every single pass, and that their lengths and outputs occur each time.
+//For clarity, the vliw instructions are re-ordered.
+
+//This works correctly.
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment	//address
+
+start:		0x1		cont		-		3s		//LED 0
+
+lp1:		loop		5		0x80		1s		//LED 7
+
+	        0x100		1s		endloop		lp1		//LED 8
+
+
+		same		cont		-		short
+		__goto		start						//This line isn't perfect - we can't jump in zero time.
+
+
+//Note that the goto takes an additional "short" to jump round.
+//If this is a problem regarding strict timings, change the first line to 2 lines:
+
+//		0x1		cont		-	 	short		//This isn't executed after we loop back, compensating for the short used by goto.
+// start:	same		cont		-		3s-short	//Must calculate the value of "3s - short" - the parser can't do it (yet).

@@ -1,0 +1,90 @@
+The pulseblaster hardware handles loops in a slightly confusing way. The parser/programmer abstracts this as much as possible; the user need only care that:
+
+VALUE OF N
+----------
+
+LOOP (n) makes exactly n passes through the loop body.  Normally, n >= 1.
+n may be 0 (which means skipping the loop entirely; see DWIM).
+
+  
+ENDLOOP DEST
+------------
+  
+ENDLOOP jumps back to the loop instruction itself, not 1 past it.
+
+
+The outputs and delays associated with both LOOP and ENDLOOP are BOTH executed n times.
+This is a mis-feature: it means that the loop-control flow cannot be abstracted away from the output values.
+Conceptual workarounds are:
+
+	* VLIW reordering: simply write the instruction to match the functionality:
+
+		lbl: 	loop	 3	0xff 	10s
+			...
+			0xf1	20s	endloop	lbl
+
+	* Opcode macros:
+
+		lbl:	__loop	3
+			0xff	cont	-	10s			//The first "inner instruction" must be a cont.
+			...
+			0xf1	cont	-	20s			//So must the last one, (and we need at least 2 of them).
+			__endloop  lbl
+
+
+	Both of these make the intent clear, whereas the standard syntax doesn't make it obvious that both of the outputs and delays are inside the loop:
+
+	* Normal loop definition:
+
+		lbl:	0xff	loop	3	10s
+			...
+			0xf1	endloop lbl	20s
+
+
+ZEROLOOP DWIM
+-------------
+
+Note that DWIM allows loop(0) to be converted seamlessly into "goto(addr_of(matching_endloop) +1)", i.e. jumping past the loop. 
+If there are multiple adjacent zeroloops, then it jumps all of them in a single bound. The skipped instructions are converted to "never".
+See, for example, pbsrc_examples/good/zeroloop.pbsrc. 
+  
+This timing is perfect, except that:
+
+	- If the jump-destination's output was "same", this will still be wrt the instruction at n-1, i.e. the endloop, even though that instruction isn't now executed.
+	  This is the correct behaviour, but the result is probably unintended: it differs from what would happen if the entire loop....endloop were commented out.
+	  So, a warning is generated.
+
+	- The goto's length is a short, and this is compensated by deducting short from the jump's destination. If that would make the destination instruction too short, then the compiler will warn.
+
+
+Note that really perverse program flow could be messed up by this [update: even this is actually now ok; see zeroloop.pbsrc]. For example (simplified):
+  
+		goto	   	(lbl_x)
+	lbl_y:  cont
+		loop   		(0)	 {
+			goto 	(lbl_z)
+	lbl_x:  	cont				//i.e. the middle of the loop contains code which is normally jumped over
+			goto    (lbl_y) 		//but where we leap in and out again from somewhere else entirely.
+	lbl_z: 		cont
+		}endloop
+	lbl_a:		
+	
+	  
+ ...which gets turned into:
+  
+		goto		(lbl_x)
+	lbl_y:	cont 					//so we never jump back to here.
+		goto		(lbl_a)
+	lbl_x:	never
+		never
+	lbl_z:	never
+	lbl_a:
+	
+  
+	  
+HARDWARE
+--------
+	
+For details of the hardware, read ../../pb_utils/doc/loops.txt . But you really don't need to care about that.
+
+

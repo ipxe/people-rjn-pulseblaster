@@ -1,0 +1,85 @@
+INTRODUCTION
+------------
+
+It's possible to extend the simulation to output bytes to real hardware parallel-ports, and thus form a "poor-man's pulseblaster". This works quite well, at up to
+about 1 kHz, across 1-3 parallel ports, and has respectably small amounts of jitter. See also simulation.txt
+For an example/demonstration script, see:  pb_test-parport.
+
+Note: this is rather a "hack" on top of the simulation-piano-roll mode: it's a neat toy and an easy-win, but there's a lot of scope for enhancement (see below).
+
+
+USAGE
+-----
+
+1. In one shell, create a fifo, and run pb_parport-output:
+
+	mkfifo  myfifo
+	while : ; do pb_parport-output myfifo ; done
+
+2. In another, run pb_parse, with the -j option, and connect to the first via the fifo:
+
+	pb_parse -i infile.pbsrc -j myfifo -t
+
+	(For maximum speed, use -m, -y, -q,  and redirect stdout/stderr to a file or /dev/null, this allows about 2x improvement in flat-out speed,
+	the emission of warnings can itself slow down the simulator.)
+
+
+
+EXPLANATION
+-----------
+
+* pb_parport-output is a simple C program (it has to be C, to use the PPCLAIM and PPWDATA ioctls) which reads from a FIFO (in ascii-hex format), and outputs
+to the physical parallel ports (/dev/parport2:1:0). It can run at about 400k writes/second.  The bytes are written directly to the port; there is no handshaking.
+If multiple ports are used, it might be worth modifying this code to make some use of the STROBE line on one of them. Invoke it with -h for more details.
+
+* pb_parse simply writes the data-stream to the fifo in a timed manner. Although there is buffering involved, pb_parport-output is so much faster than pb_parse that
+the timing is quite well controlled, and jitter is slight. The maximum speed is about 1 kHz at the moment; this is CPU-limited by pb_parse. [A fast, multicore machine, with
+cpu-affinity set to dedicate a core to pb_parse and to each parport may improve performance and minimise jitter..]
+
+* Physical "legacy" parallel ports are probably necessary. [Most USB parallel ports are really printer-ports, and don't support the relevant ioctls]
+(The old, unportable outb() method isn't used).  The parport hardware and ioctls are described here: http://people.redhat.com/twaugh/parport/html/x623.html
+
+* The use of a fifo for communication between the programs can be problematic: writes will block (and so only kill -9 works); also fopen() blocks till the other end is opened too!
+(The blocking of fopen() is unusual, but see man (7) pipe, man (7) fifo. ).  Once the pipe is "running", there is  64kB of buffering within the pipe, though in practice,
+pb_parport-output usually keeps it drained at all times (thereby avoiding much jitter). If either end dies, the other end is killed by SIGPIPE, and data "in transit" is discarded.
+
+
+
+LIMITATIONS
+-----------
+
+Of course this is much much cheaper than the real PulseBlaster, and it's very convenient for quick tests. But:
+
+  - Of the 3 ports (if all are present), there is no synchronisation across them - writes to the ports "ripple" from LSB to MSB.
+    (This limitation could be fixed by modifying pb_parport-output to use the STROBE line, and buffering the ports).
+
+ - This is very CPU-limited, and can only run reliably at ~1 kHz. (The parports can be driven at 400 kHz though).
+
+ - The timing relies upon the computer's clock - less accurate than the PB's crystal. Also, there is no realtime guarantee for sleep(), which will add jitter.
+
+ - We rely upon pb_parport-output being able to keep a FIFO buffer (mkfifo) permanently drained; this will cause some jitter.
+
+ - Physical parallel ports (not USB ones) are quite uncommon in PCs now, though IEE-1284 PCI cards are very inexpensive]
+
+ - Unlike the real PulseBlaster, there are no physical HW_Trigger and HW_Reset ports.
+
+ - Note that the pb_parse simulation code is fundamentally quite simple and short; a C-implementation that starts from the .VLIW file could be made easily.
+
+ - Or, very simply, perhaps 50 kHz is achievable on a fast (3.6 GHz) CPU, just by streamlining the PHP simulator for this single purpose, removing the 
+   redundant [wrt parallel-port-output] functionality, inlining write_output_fifo() instead of sim_output(), and pre-computing the printf()s.
+
+
+
+USB PARPORT ADAPTERS
+--------------------
+
+Some USB parport adapters might support a bit-banging mode, eg the USS720 chip which can be driven either by the usblp kernel module (as a usb printer port), 
+or driven by the uss720 kernel module, which supports bitbanging. The common device with the PL2305 chip doesn't seem to support it. Either way, having a DB25-F connector
+on the adaptor is more likely to work than an adapter with a Centronics port. Even if the adapter does support the ioctls (or another way of bit-banging), it is likely
+to be very slow: USB is optimised for transfers of many bytes at a time; single byte writes mean single-byte-wide usb packets; a usb microframe is at least 125us long
+for USB 2.0 (i.e. 10kHz would be about the best possible bitbang speed). 
+
+See also: http://www-user.tu-chemnitz.de/~heha/bastelecke/Rund%20um%20den%20PC/USB2LPT/faq.htm.en	- explains the problem (on Windows)
+	  http://hackaday.com/2009/09/22/introduction-to-ftdi-bitbang-mode/				- cheap alternative FTDI device with parport-like behaviour.
+	  http://www.linuxquestions.org/questions/linux-hardware-18/usb-parallal-adapter-i-o-trickery-836663/   - How to use the PL2305
+	  http://www.sharms.org/blog/2010/06/								- Using the usblp module and a PL2305 chip

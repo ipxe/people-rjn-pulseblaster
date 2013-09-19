@@ -1,0 +1,79 @@
+#!/usr/bin/php
+<?
+// This piece of documentation can also be executed. It shows the problem marked as DOCREFERENCE: PCRE-LIMIT
+// Basically, long multi-line comments: /*.. */  could be problematic to the parser: we must remove them
+// Using the regex:  '\/\* .*?  \*\/'   (or  '\/\* .* \*\/' with the Ungreedy option). However, for ~ 32k lines
+// of source, the string this much match could potentially be rather large. If it exceeds 100k chars, there will
+// be a problem, and preg_replace() returns NULL.  Workaround: ini_set(pcre.backtrack_limit) much higher.
+// PHP defaults to 100k chars; we increase to 32M.
+// Here is some code to demonstrate...
+
+
+//Demonstration of bug with ungreedy preg_replace '.*?'  matching a very long string.
+//Slightly changing the size of the source string (around 100k chars)
+//makes the preg_replace return an empty string, though there is no error-message.
+
+//Workaround: see if preg_replace returns NULL. Also, ini_set(pcre.backtrack_limit) much higher. DOCREFERENCE: PCRE-LIMIT
+
+error_reporting(E_ALL);
+
+$GOOD = 	90000;		//Works
+$BAD  = 	110000;		//Fails
+$CRITICAL = 	99998;		//Critical value on my test PC. (just failed, by 1).
+
+#$num =  $GOOD;			//Change the value of $num to trigger the bug (or not).
+#$num =  $CRITICAL;
+$num  =  $BAD;
+
+
+$limit = ini_get('pcre.backtrack_limit');
+echo "Current Backtrack Limit is $limit\n";
+
+#ini_set( 'pcre.backtrack_limit', 100000000);	//It's possible to increase the limit.
+#$limit = ini_get('pcre.backtrack_limit');	//quite a lot!
+#echo "New Backtrack Limit is $limit\n";	//Use this block to demonstrate the effect.
+#$num= "90000000";				// 90M chars and 100M limit are practical.
+
+
+//We start with some text in this form:  "beginAxxxxxxxxxxZend"
+//We try to replace  "AxxxxxxxxxxZ"  by  "y"
+//using the regexp  "A.*?Z" as the search term.
+//[The ? makes ".*" ungreedy; this is important in the context of this bug.]
+//We should always get the result "beginYend", 
+//BUT, if there are too many "x", then we get the empty string back.
+
+
+//Generate some text.
+
+$text  = "begin";			//before
+$text .= "A";				//Start-Marker
+$text .= str_repeat ("x", $num);	//contents: lots and lots of Xs.
+$text .= "Z";				//End-Marker
+$text .= "end";				//after
+
+
+//The buggy bit. Processing this regex is the problem.
+$result = preg_replace ('/A.*Z/sU', 'Y', $text);		//This is buggy
+#$result = preg_replace ('/A.*?Z/s', 'Y', $text);		//Exactly equivalent: same buggy behaviour.
+#$result = preg_replace ('/A.*Z/s', 'Y', $text);		//If we turn off the greediness, it doesn't show the bug.
+#$result = preg_replace ('/Ax*?Z/s', 'Y', $text);		//If we change '.' to 'x', the bug goes away.
+
+
+//Look at the output. Expect to get 'beginYend'. But when the bug bites, we get the empty string.
+
+$len1 = strlen($text);
+$len2 = strlen($result);
+
+//echo "Result: '$result'\n";		//Should always get 'beginYend'. BUT sometimes get ''.
+echo "Initial length: $len1\n";
+echo "Final   length: $len2\n";		//Should always be 9. But sometimes get 0.
+
+if ($len2 == 0){
+	echo "ERROR!\n";
+	exit (1);
+}else{
+	echo "OK\n";
+	exit (0);
+}
+
+?>

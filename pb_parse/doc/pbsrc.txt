@@ -1,0 +1,1065 @@
+INTRODUCTION
+============
+
+This documents the ".pbsrc" file format. Pbsrc files are the human-editable (C-ish) PulseBlaster source-code. It also explains how the parser (pb_parse)
+processes these files. pb_parse generates a .vliw file (i.e. assembly), which is then programmed (as hex) into the PulseBlaster by pb_asm/pb_prog.
+Although the PulseBlaster is limited in the instructions it can process, the .pbsrc files use a lot of pre-processor-trickery to abstract away certain 
+difficulties and limitations, and to add extra functionality. Many things can be computed in advance.
+
+
+
+SEQUENCER
+=========
+
+Note that the PulseBlaster is a programmed sequencer, not a Turing-complete device. This means that certain operations (conditional jumps) are impossible. 
+There are also no internal variables (other than the loop counter). One consequence of this is that all calculations can be pre-compiled, with inlining of 
+macros (rather than functions). It also allows us to computationally verify programs completely: there's no Halting Problem here, and we can work out whether
+the program will loop or terminate. We can simulate in full (or with shortcuts), and prove that the stack/loop counters are never over/underflowed. 
+Simulation also enables the generation of a .pbsim (simulation-replay) file, and viewing the full output (.vcd) in a wave-viewer (eg gtkwave).  
+
+
+
+HEADER FILE
+===========
+
+Many pulseblaster constants, in the PB_* namespace (eg PB_TICK_NS, PB_INTERNAL_LATENCY, PB_MEMORY) are defined in pulseblaster.h. (in the pb_utils directory, 
+via pb_print_config), and are described in detail there. Parser-specific settings are defined in the "Configuration section" of pb_parse (but shouldn't normally be changed).
+
+
+
+PBSRC  SPECIFICATION
+====================
+
+This is the specification of the high-level .pbsrc programming language for the PulseBlaster. It is used by the pb_parse program, which in turn emits a .vliw file
+to be used by pb_asm/pb_prog. [Note that a .vliw file is itself a valid, albeit restricted pbsrc file, see ../../pb_utils/doc/vliw.txt ]
+
+ - The file extension is '.pbsrc'  (PulseBlasterSouRCe).
+
+ - Each instruction/statement is on a line of its own, and consists of the following:  [VLIW instructions may be re-ordered for clarity.]
+        [optional LABEL:]	OUTPUT		OPCODE		ARG		LENGTH		[optional //comment]
+
+ - Instructions are confined to exactly one line, and are not terminated with semicolons. [line-breaks cannot be escaped by '\' before the end-of-line].
+
+ - Comments begin with '//'.    (Note: '#' is not a valid comment character, and that '/*' and '*/' still take effect within '//' comments.)
+
+ - Multi-line comments use '/*.....*/', although these may NOT be nested.  The '/*' and '*/' may be not commented out by '//' nor quoting.
+ 
+ - Some special directives are prefixed with '#'. For example, #define and #include, and #if/#ifnot. These affect their own LINE, not a block.
+
+ - Blank lines are ignored.
+
+ - Everything is case-sensitive (except opcode names).
+
+ - Delimiting of the 4 main columns is done with whitespace. The exact format is not strict; tabs or spaces can be used.
+   Note: it is strongly urged to reserve the first column for labels. If a non-label is found there, the parser will emit a warning.
+   Do not use whitespace within an instruction.
+   
+ - Word characters (#defines,macro names etc) are:  [a-z0-9_]  (and, like C, words may not begin with a number).
+
+ - Number characters (args, lengths, outputs) are:   binary, hex, or decimal. i.e.    0b[01]+   0x[0-9a-f]+   [1-9][0-9]*
+        [Octal format, eg 073 is illegal, because it's potentially confusing: glibc's strtol() treats 073 as 59.]
+	Underscore '_'  may be used to separate bits/bytes; these characters are ignored.
+	Units (eg us,ms) are allowed in lengths.
+	Expressions may use the various operators (eg +,-,/,% etc), bbut no spaces. See EXPRESSIONS section.
+
+
+
+PARSE ORDER
+===========
+
+The parser iterates over the file in this order. The parser makes multiple passes over the file, internally-re-writing it at each stage, rather than fully
+processing each line to completion the first time. A notable consequence is that #define takes effect everywhere in the code, even if it is defined below
+that point (the parser will warn if so). This is the order of processing:
+
+ 1)  Multi-line comments are discarded:  /* ... */ 
+ 2)  Include files (#include) are embedded. (No nested includes)
+ 3)  Multi-line comments are again discarded (in case there were any in an included file.)
+ 4)  Hardware assertions (#hwassert) are verified.  VCD labels (#vcdlabels) are processed. #endhere is scanned for.
+ 5)  Definitions (-D and #define) are parsed. [The result of a '#define' can be any literal string.]
+ 6)  Definitions are evaluated. String-replacement is then done on the rest of the file.
+ 7)  Executable includes (#execinc) are run (iff enabled, with -X). If necessary, #defines are processed again.
+ 8)  Multi-line comments are searched/discarded for the 3rd time, in case there were any resulting from #execinc or -D.
+ 9)  Set statements (#set) are parsed.
+10)  Lines are enabled/disabled by #if/#ifnot.  (this is just for that line, not a block)
+11)  Macro definitions (#macro) are parsed.
+12)  Macros are expanded.
+13)  After macro-expansion, $parameters are now literal; embedded "#if($x)" lines are enabled/disabled.
+14)  Echos (#echo) are printed. This is useful to check expression values.
+15)  Assertions (#assert) are verified. This is useful to enforce requirements on -D, or to sanity-check the results of #execinc.
+16)  VLIW reordering is done, where necessary.
+17)  Opcode macros (e.g. __return or __loop) are substituted.   (case-insensitive)
+18)  Overloaded-STOP and NOP are substituted. (case-insensitive)
+19)  Labels are evaluated and converted to numeric addresses.
+20)  The vliw tokens (OUTPUT,OPCODE,ARG,LENGTH) are parsed and expressions and units are evaluated.
+21)  Bitwise changes (including "same") are now applied.
+22)  The DWIM ("do what I mean") fixes are applied: promotion/demotion of cont<->longdelay; longdelay(auto); loop(0) (aka "zeroloop")
+23)  The output bitmask is applied (see #set above).
+24)  Sanity checks are performed. Everything is checked to be legal and in range.
+25)  [Optionally, the simulator is now run. See simulation.txt]
+26)  The .vliw file is written out, if no errors were found. [on parse-error, the .vliw is deleted, to prevent loading an old one into the PulseBlaster.]
+
+
+
+PREPROCESSOR KEYWORDS
+=====================
+
+preprocessor keywords begin with '#'. These should be put at the start of the file, especially #define.
+The order of precedence is: #include, #hwassert, #vcdlabels, #endhere, #define, #execinc, #set, #macro, #echo, #assert; a full pass is made for each.
+
+
+INCLUDE
+-------
+
+#include "path_to/file"
+
+	Include a file. The filename must be double quoted, and is (obviously) case-sensitive. Nested includes are NOT allowed.
+	Filenames may not contain double-quotes ("), and backslash-escapes (\") will not be parsed.
+	Note: if path is not absolute, it is assumed to be relative to the .pbsrc file. The extension needn't be .pbsrc  (suggest ".h" for headers).
+	A #include MAY be commented out. There is no default search path for #include.
+
+
+HARDWARE ASSERT
+---------------
+  
+#hwassert CONFIG VALUE
+
+	This is a consistency cross-check. If a particular .pbsrc file relies on a certain configuration setting in pulseblaster.h/pb_print_config, then this can be verified. 
+	For example, to verify that pb_parse is configured with a tick = 10ns, use:
+		#hwassert PB_TICK_NS  10
+	failing which, the parser will exit with a fatal error. Assertions allow a .pbsrc file to be "tied" to a specific model of PulseBlaster. 
+
+	Note 1: If the .pbsrc file uses units (eg 5_us) rather than ticks, then it can be compiled for any PulseBlaster, and the assertion is not needed.
+        Note 2: CONFIG may be any key of the $HEADER[] array, as #defined in pulseblaster.h (via pb_print_config) Notably, PB_TICK_NS, PB_CLOCK_MHZ, PB_MEMORY. List with "pb_parse -c".
+
+    
+VCDLABELS
+---------
+
+#vcdlabels  BIT23_LABEL, BIT22_LABEL, ....
+
+	This specifies the labels for the individual output bits, for use in a VCD (value change dump) file used by a wavefile viewer (eg gtkwave). This format is the
+	same comma-separated list (spaces optional) used by -L; it allows some bits to be omitted entirely by using '-'. For example "Reset,Clock,-,Enable". See also vcd.txt
+	VCD labels must be literal, they cannot be #defined, though they can be over-ridden by -L.
+	
+
+END HERE
+--------
+
+#endhere
+		
+	Lines after this are ignored. This directive is helpful for debugging, similar to PHP's "__halt_compiler()".  
+	[Note 1. an #include after #endhere still occurs, but the contents of that file will be ignored.]
+	[Note 2. #endhere cannot be the result of a #define or a #execinc.]
+	
+	
+DEFINE
+------
+
+#define  CONSTANT VALUE					<-- simple inline definition in source file
+#define  CONSTANT #what					<-- hint that -DCONSTANT=VALUE is subsequently required.               
+#define  CONSTANT #default:VALUE			<-- default value, may be overridden with -D
+#define  CONSTANT a line of instructions		<---this is also allowed.
+-DCONSTANT=VALUE					<-- command-line definition
+-DCONSTANT						<-- see #if below
+-DNoCONSTANT						<-- see #if below
+
+	This defines a Constant to be Value. This is the same as in C, e.g:  "#define ADC_TIME 1ms"   or  "#define LOOP_5  loop 5"
+	CONSTANT may be any legal WORD (no special characters or spaces, case-sensitive).
+	VALUE may be any string, (which may be empty, or may include embedded whitespace, metacharacters, keywords-subsequently-parsed, comment-characters and quotes).
+
+	Internal definitions (using #define) are performed by stripping off trailing comments, and trimming leading/trailing whitespace to obtain VALUE.
+	Argv[] definitions (using -D) use the normal shell quoting rules.
+	
+	#what is an (optional) hint to the compiler (and the human) that it constant is *required* to be defined at the command-line, using -Dconstant=value.
+	Then the compiler checks that for a matching -D or exits. (The constant is never defined to the literal '#what').  
+	
+	#default: allows a default value to be supplied, which may *optionally* be overridden with -Dconstant=new_value. 
+	
+	The short form -DCONSTANT and -DNoCONSTANT are equivalent to -DCONSTANT=1 and -DCONSTANT=""; see #if below.
+	
+	Constants will be substituted later wherever they occur in instructions (using preg_replace()).
+	Replacement will ONLY occur if:
+		- the target is SURROUNDED BY {}, for example 'a{replaceme}string'.
+		- or the target is DELIMITED BY NON-WORD (OR $) CHARACTER ON BOTH SIDES. (i.e. NOT [$a-z0-9_]  , so as to prevent substring trouble.)
+        (This prevents ambiguity: for example by defining $a=1, $ap=2, and then attempting to evaluate $apple: is it 1pple, or 2ple? Actually, it's illegal.)
+
+	Note 1:  It is recommended to place #defines at the start of the file, to prevent ambiguity. 
+	Note 2:  Once #defined, a constant cannot be re-defined, and doing so will result in an error. (use #default: if desired).
+	Note 3:  On the command-line, -D conflicts with a normal "#define", is optional with "#define...#default:", and is required with "#define...#what".
+	Note 4:  ALL #defines are parsed before ANY instructions are evaluated. This means that a #define may replace something *earlier* in the file.
+	Note 5:  Using nested defines is usually a bad idea. However, it will work, providing that the order of *definition* is logical. For example:
+			#define   X  22				//Quantity X must be defined *before* Quantity Y may be defined in terms of X.
+			#define   Y  0x1{X}1			//causes the target 'Y' to be replaced by 0x1221.
+	Note 6:  Consecutive #defines can be used for calculations. But be careful to use parentheses: #defines are built up by string substitution; evaluation is lazy. Eg:
+			#define   A   10
+			#define   B   A+A		//This is "X+X"  not 20.
+			#define   C   3*B		//warning: will NOT evaluate as 3*(20).
+			#define   D   3*(B)		//use parentheses, to ensure evaluation.
+			#echo     _C  is C		//will print  _C is 3*10+10  [=40]
+		 [This is the same behaviour as the C-preprocessor, but opposite to the way #macro behaves.]
+	Note 7:  #define is done by global search/replace. So all defined constants have global scope, including all #includes
+	Note 8:  It is OK to define a constant 't' and have an (unrelated) parameter $t inside a macro. The delimiter '$' means that "t" is not replaced (except if written "${t}" ).
+	Note 9:  You CAN #define something to be a comment (// or /*  or */), or an #execinc, or a #macro; but not #include, #endhere, or #if/#ifnot.
+	Note 10: These are all legal: -Dcmt=// -Dempty=''  -Dstart='/*'  -Dend='*/'  -Dmacro='$10'
+	Note 11: Even constructs like this are ok:    #define july  #ifnot(herring)  @bit_flip(penguin) goto antarctica summertime
+	Note 12: [TIMTOWTDI: whole lines can also be defined using #macro.]
+	
+	
+WHAT
+----
+
+#define CONSTANT #what  
+	
+	This explicitly indicates that CONSTANT must be defined: -D must be provided on the command-line, or there will be a compile error. See '#define' above.
+
+	
+DEFAULT
+-------
+
+#define CONSTANT #default:VALUE_0     
+
+	CONSTANT is defined with a default value, which may be *optionally* overridden by using -D on the command-line.  See '#define' above.
+
+	
+IF and IFNOT
+------------
+  
+#if    (CONSTANT)
+#ifnot (CONSTANT)
+#if    (EXPRESSION)
+#if    (EXPRESSION_WITH_MACRO_PARAMETERS)
+-DCONSTANT
+-DNoCONSTANT
+  
+	This is used to conditionally enable/disable a line in the source code. When a line is prefixed with "#if (CONSTANT)", then if constant is true, the
+	line will be enabled; otherwise it will be disabled. #ifnot reverses the test. This is done for a single line, NOT a block (#if...#endif).
+	
+	0 and "" are considered as false; 1, (and integers, "\d+") are considered true.  If the "constant" contains a '$' sign, the line will fall-through for 
+	later (see MACROS). Otherwise, strings will be attempted to be evaluated as a mathematical EXPRESSION (see below, no internal spaces permitted). Failing
+	this, other strings (eg undefined constant-names) will cause an error. 
+	This is Useful with the command-line options -DCONSTANT or -DNoCONSTANT, but can also work with other #defines.
+	
+	-DCONSTANT     changes the source-line prefix to a simple tab ("\t"), leaving the line enabled.
+	-DNoCONSTANT   changes the source-line prefix to "//#if(false) \t",   thus commenting out the line.
+  
+	Note 1: #if is really intended for -D/-DNo on the commandline, but will work with a #define in the source itself (Consider: "#define CONSTANT #default:0")
+	Note 2: #if applies ONLY to the current line, and there is no matching #endif. (Consider it as "if-true-then-enable-this-line")
+	Note 3: A constant whose name begins with "no" will obviously be problematic here... but it's still OK to use the "Dconst=value" syntax.
+	Note 4: Examples: "#if(1)" and "#if(44)" are true, "#if(0)" and "#if()" are false, "#if(X%3)" will be evaluated (assuming X was #defined), "if(nonsense)" will fail.
+	Note 5: Expressions with '$' inside them are evaluated later, at the macro-stage. Eg  "#if($n==2)" will first have $n substituted during macro-expansion.
+	Note 6: Precedence: one can #define a #if, but not #if a #define. 
+
+	
+ELSE / ELIF / ENDIF / IFDEF / IFNDEF   do not exist
+---------------------------------------------------
+  
+#else,#elif,#endif,#ifdef,#ifndef
+	
+	These aren't implemented. However, it's possible to get the same effect with creative (ab)use of #define.  For example:
+	    -Dcmt=''    or -Dcmt='//'		enable or disable this line
+	    -Dstart='/*'  -Dend='*/'		comment out this block.
+	For now, these keywords are reserved, for future implementation.
+
+
+EXECINC
+-------
+  
+#execinc "progname"  ARG1  ARG2  ARG3 ....
+
+	Progname is executed with the given args. Its output is then included into the input-stream at that point. ARGS are parsed as expressions if possible.
+	Progname is either absolute, or relative to the .pbsrc file. If executable, it's run directly; otherwise with "php -f". See "EXECUTABLE INCLUDES" below.
+	If any #execincs are found, then another pass is made for #defines and /*...*/ (but not for #includes).
+	
+	
+SET
+---
+  
+#set  SETTING VALUE
+
+	Set an internal compiler setting, which affects the output. (VALUE may contain #define'd constants) The available settings are:
+
+		OUTPUT_BIT_MASK			If set, all outputs are AND'd with this.	 } These are applied in the
+		OUTPUT_BIT_SET			If set, all outputs are then OR'd with this.	 } order: MASK, SET, INVERT
+		OUTPUT_BIT_INVERT		If set, all outputs are then XOR'd with this.    }
+
+	For example "#set OUTPUT_BIT_INVERT 0x08" means that the 3rd bit is always to be inverted. Useful for abstracting active-low inputs fed by the PulseBlaster.
+
+	These are then applied at the very end.
+	
+
+MACRO
+-----
+
+#macro macroname ($arg1,$arg2,...){  //Contents of macro. $arg1, $arg2 etc may be used here. }		<-- definition of the macro
+macroname (123,456)											<-- inlining the defined macro
+
+	Macros are expanded by the pre-processor, but see below for the details.
+	A macro is useful as a way to let a subroutine take arguments; it achieves this by inlining a separate copy of the code after parameter substitution.
+	Macros (usually) span multiple lines.
+	For details, see "FUNCTIONS, MACROS AND SUBROUTINES" below.
+	Aside: note that #define's value can be an entire line, not just a single token; therefore one-line macros are #define-able.
+
+
+ECHO
+----
+
+#echo STRING WITH OPTIONAL EXPRESSIONS
+
+	At the parse-stage, print the string. This is very useful for debugging. If string contains any valid expression, these will be evaluated and also printed.
+
+	For example:
+
+		#define  X  50
+		#define  Y  X+X
+		#define  Z  3*Y
+		#echo Hello. The value of _Z is Z
+
+	will print (with colours):
+
+		#echo Hello. The value of _Z is 3*50+50 [=200]
+
+	Note 1: The string is parsed, looking for expressions. Any legal expression is evaluated and the evaluation is appended in []; the rest is printed raw.
+	Note 2: It can be used within #macro, to show how the macro is called.
+	Note 3: For a #defined constant "T", use "The value of _T is T"; the _ protects against #define substituting the first one.
+
+	
+ASSERT
+------
+  
+#assert EXPR1 OPER EXPR2
+
+	Assert the relationship between two expressions. If false, then the parser exits with a fatal error. Useful to enforce requirements on -Dconst=value. Eg:
+		#assert  ADC_CONVERSION_TIME  >=  100ns
+	The operator may be one of the numerical comparisons:   >   >=   <   <=   ==  !=
+
+	Valid expression formats are given below; note that they cannot contain whitespace. #assert is tested last, so even macros may embed them.
+
+	
+MARK
+----
+   
+There is no "#mark" directive, but see the MARK opcode.
+	
+	
+
+INSTRUCTION FORMAT
+==================
+
+These are the actual instructions to execute.  See ../pb_utils/doc/pulseblaster-opcodes.txt for more details.
+The meaning is:
+	1) Set the specified OUTPUTs
+	2) Do the OPCODE (with ARG), taking LENGTH to execute.
+
+Another more detailed way to consider this is:
+	1) Set the Outputs.
+        2) Do the Instruction (with Arg): update all the internal registers and program counter.
+	3) Wait length (note that WAIT's delay occurs after wakeup).
+	4. Jump to the new program counter. (This is really the start of the next instruction).
+
+
+Each instruction takes this form, delimited by whitespace:
+
+ [LABEL:]   OUTPUT   OPCODE   ARG  LENGTH	//comment
+
+
+  LABEL:	Label is optional. It is the named destination of a goto/endloop/call instruction, which will later be substituted by its address.
+		All labels are strings, containing letters, numbers, _ or -. They must begin with a letter (which prevents a label from accidentally being a number).
+		Labels MUST end with a colon (:). [However, the colon is not included when referencing the label, i.e. as an ARG].
+		Labels should be in the first column; otherwise this column ought to be left empty (as a matter of good style, and to prevent warnings).
+
+		Note 1: Don't use labels unnecessarily, or there will be superfluous warnings. Comment them out. See note below on 'DESTINATION' for more.
+		Note 2: It is suggested to use labels begining with "sub" for subroutines, and "lp" for loops.
+		Note 3: All LOOP instructions must have a label at their start.
+		Note 4: Labels may not exist on a line of their own, nor with just a comment.
+
+
+  OUTPUT	Output is the 24-bit signal to output. It is in any of these formats:
+		   0xFEDCBA				A single hexadecimal number (begins 0x)
+		   0x_FE_DC_BA				Underscores are ignored, but can be used to separate the bytes for clarity.
+		   0b1001_1001__1001_1001__1001_1001	Binary (begins 0b).  Underscores are ignored, but can be used to separate the bytes and nibbles as desired.
+		   123456				Decimal number: begins with 0-9.  (Commas may be used as thousands-separators eg "1234,567")
+		   -					A single -, to denote explicitly that the output is ignored: this is used only for non-overloaded STOP opcodes.
+		   same					The same as the previous output. See note on bitwise changes below.
+		   bit_*				Bitwise change to the previous output. See note below on 'BITWISE CHANGES' for more.
+		   EXPRESSION				A bitwise, comparison, or mathematical expression may be used. See EXPRESSIONS below.
+
+
+  OPCODE	OpCode is the instruction to perform next. It is case-insensitive, and is one of the following:
+		CONT, LONGDELAY, LOOP, ENDLOOP, GOTO, CALL, RETURN, WAIT, STOP, NOP (also DEBUG, MARK and NEVER).
+		Synonyms for these opcodes are also supported (Spincore and AstroMed): CONTINUE, LONG_DELAY, END_LOOP, TEL, BRANCH, JSR, RTS
+
+
+  ARG		Arg is the (20-bit) argument to the opcode. It is either a number of loops, or an address to go to. It may have any of these formats.
+		   LABEL		A string for the label to jump to. (Must begin with a letter)
+		   123			Decimal: loop counter or multiplier
+		   0xFE_DD_BA		Hex: loop counter, or multiplier
+		   0b110		[Binary is permitted, but inadvisable]
+		   - 			To show explicitly that there is no arg. required.  [Or, implicitly DWIM].
+		   auto			Explicitly: "please calculate this for me", used for longdelay. ('-' has exactly the same effect.)
+		   EXPRESSION		An expression (such as 3*2+4) may be used. See EXPRESSIONS below.
+
+		Note 1:  Literal addresses may be used for jumps (eg goto,call,endloop), but this is a TERRIBLE idea. The compiler will warn, since it cannot then detect
+			 potential errors resulting from is_destination(). Sources of potential error include #include, manual insertion/deletion of previous lines,
+			 the use of opcode macros (eg __return), which use one less instruction than expected, and overloaded STOP, which uses one more.
+		Note 2:  Labels (which get evaluated to addresses) may (obviously!) not be used instead of numbers, such as loop counter.
+		Note 3:  Arg may be 'auto', (or -) for Longdelay, and will be calculated by the parser. See "DWIM" for more.
+		Note 4:  Where arg is not required, it must still be written, as  "-". "0" will also work (not recommended). Omission of ARG will cause an error.
+
+
+  LENGTH 	Length is the (32-bit) delay length. It may be in any of these formats:
+		   15		If there are no units, clock ticks are assumed.
+		   15_ticks	Explicitly denote that the units are clock ticks.
+		   100_ps	Otherwise, pico,nano,micro,milli,seconds,kilo,mega seconds. (using the standard prefixes, with 'u' for micro,i.e. "ps,ns,us,ms,s,ks,Ms")
+		   500_ns	Also supported: minutes, hours, days weeks ("min,hr,day,week", with optional plurals).
+		   10_us	Underscores are ignored. (but may be included for legibility). Likewise, commas may be used to separate thousands.
+		   500_ms	Spaces are NOT allowed (eg '42 us')
+		   5.4_s	Decimal points are allowed (but not if the number is hexadecimal).
+		   4.333_s	It is recommended to use only 3 decimal places at most, e.g. 5.43_ms is shorthand for 543_us.
+		   short	A special keyword, to set length to the shortest possible (legal) value. This is usually PB_MINIMUM_DELAY; but PB_MINIMUM_WAIT_DELAY for wait opcodes.
+		   - 		A single -, to denote (explicitly) that the length is ignored: this is used by the (non-overloaded) STOP opcode.
+		   EXPRESSION	Eg 10us*2. Arithmetic operators may be used when specifying a length. See EXPRESSIONS below.
+
+		Note 1: the PulseBlaster has an inherent latency, and a minimum delay-length. These are documented in ../pb_utils/pulseblaster.h, via pb_print_config
+			In the pbsrc file, Length should be the time that is actually wanted; the inherent latency will be adjusted later.
+			(The parser will exit with error if the requested delay is too short for the device.)
+
+		Note 2: if the length is not an exact multiple of the number of ticks, then it will be *rounded* to the nearest integer. The parser will emit a
+		        warning (or notice) if this rounding introduces a significant (or non-negligible) error.
+
+		Note 3: If the opcode is a LONGDELAY, then remember that length is implicitly to be multiplied by ARG (or use ARG=auto).
+
+		Note 4: The maximum delay at 100 MHz is 42 sec. The max long-delay is 1.4 years; this must be expressed in days, since months/years are not well-defined.
+
+		Note 5: Fractional lengths in units (eg '10.3us') are allowed. Fractional ticks (eg '9.7') aren't meaningful, and are forbidden.
+
+		Note 6: Dimensional consistency is required within expressions. Eg "10us*5" is allowed, but "10us*5us" would be obviously wrong.
+
+
+  COMMENT	The comment is optional. It begins with //, and can be anything desired. Comments should (ideally) fit a single line. Note: '//' does NOT comment out '/*' or '*/'
+
+
+  Note 1:	Virtually everything that can be checked is checked. Please read the warnings: they are meant to help!
+
+  Note 2:	The VLIW instruction may be written in different orders, for clarity. Allowed:  OUT-OPC-ARG-LEN,   OUT-LEN-OPC-ARG,  OPC-ARG-OUT-LEN
+
+
+
+OPCODES in DETAIL
+=================
+
+These are the opcodes supported. Some synonyms are permitted, for compatibility with Spincore's names (branch,jsr,rts); abbreviations (rtn,ld); or AstroMed equivalents (tel,TEST_END_LOOP).
+The opcodes are the same as Spincore's ones, which are documented in ./pb_utils/doc/pulseblaster-opcodes.txt, with the exceptions that:
+   - Opcodes are case insensitive (this makes it easy to vgrep "STOP" in a sea of "cont"s.)
+   - Opcodes are enhanced: the delays and outputs can be specified in various formats, which allow more flexibility.
+   - Delays are the length requested by the user. The PulseBlaster internal latencies are accounted for, and if the requested delay is too short, there will be an error.
+   - STOP may be overloaded, and NOP, DEBUG, MARK are added
+
+
+	OpCode          ARG     LEN     Function                                                        Notes
+	======		===	===	========							=====
+
+	CONT            -       len     Set outputs.							If cont is overlong, it will be automatically promoted to 
+	(continue)	auto		Continue to next instruction, taking length cycles              a long_delay (DWIM).
+
+
+	LONGDELAY       n       len     Set outputs.                                                    n > 1.     Use auto if the compiler should work it out.
+	(long_delay)	auto		Continue to next instruction, taking ARG * LEN cycles           If n == 1, it will be demoted to cont (DWIM).
+
+
+	LOOP            n       len     Set outputs.                                                    n >= 0             	If n == 0, converted to goto (DWIM)
+					Unless already in this loop, start a loop of ARG counts.        Executed n times.       Loopdepth <= 8, i.e.  PB_LOOP_MAXDEPTH
+					Continue to next instruction, taking length cycles.             Must have a label.	See loops.txt
+
+
+	ENDLOOP         addr    len     Set outputs.                                                    addr is matching loop.
+	(end_loop)			Decrement counter. Either exit the loop or jump-back to         Executed n times
+	(test_end_loop)			address ARG, taking length cycles.                              Max nested loops: 8
+	(tel)
+
+	GOTO            addr    len     Set outputs.                                                    -
+	(branch)			Jump to instruction at ARG, taking length cycles.
+
+
+	CALL            addr    len     Set outputs.                                                    Max stack depth: 8
+	(jsr)				Call subroutine at ARG, taking length cycles.                   i.e. PB_SUB_MAXDEPTH
+
+
+	RETURN          -       len     Set outputs.                                                    -
+	(rts)				Return to the address after the caller, taking length cycles.
+	(rtn)
+
+
+	WAIT            -       len+    Set outputs.                                                    Not first instruction.
+					Wait for software or hardware trigger.                          If 2nd, 1st length >= 11 i.e. PB_BUG_WAIT_MINFIRSTDELAY
+					Then proceed, taking length cycles.                            	To wake, use HW_Trigger or pb_cont; not pb_start.
+
+
+	STOP            -       -       Ignore outputs. Just Halt. (Length is ignored)			Mustn't be a destination.
+					Need pb_start, or hw_reset;hw_trigger				Previous instruction must be longer by PB_BUG_PRESTOP_EXTRADELAY.
+
+	STOP(outputs)   -	-	If outputs are specified (rather than "-"), then		Converted to: "outputs cont - short; - stop - -"
+					this will be converted to 2 consecutive instructions.		(where short is PB_BUG_PRESTOP_EXTRADELAY)
+					Think of this as "overloading the stop opcode"
+
+
+	NOP		-	-	Any instruction may be replaced by NOP. Other parameters	Equivalent to "same cont - short".
+					will be silently ignored. Useful in debugging.			(where short is PB_MINIMUM_DELAY)
+					
+	DEBUG		-	len	Syntactic sugar to help the programmer to vgrep.		pb_asm treats this as a synonym for "cont -"	
+
+	MARK		-	len	Prints timestamp and other information during simulation.	pb_asm treats this as a synonym for "cont -"	
+					Breakpoints help predict the timing of complex code.		(different marks are identifiable by their comment)
+	
+	NEVER		-	len	Automatically generated by the parser, (usually zeroloop)	pb_asm treats this as if it were "cont -".
+					to indicate dead code that is skipped over. 			Simulation should never reach this. 
+
+
+  Note 1: ENDLOOP requires the address of the start of the loop. It MUST (obviously!) match the address of the corresponding correctly-nested LOOP instruction, and 
+	  therefore the parser could calculate it if required. In fact, the parser does not calculate it, but it does CHECK it during the simulation. The PulseBlaster
+	  needs to know it, and it is provided as an ARG to save stack space - although the PulseBlaster could (in principle) calculate it during execution.
+  Note 2: Program execution begins at line 0. Therefore, all subroutines must be placed at the end of the address space (and the end of the .pbsrc file). (or jump over them)
+  Note 3: It is legal (and a neat programming trick) to CALL into the same subroutine at different entry points.
+  Note 4: Overloaded STOP is actually 2 instructions. The hardware's STOP opcode doesn't set any outputs. So to make this more useful, if outputs are specified, the parser
+	  will convert it to "outputs CONT - short", followed by "- stop - -". This may be more useful.
+
+
+
+VLIW REORDERING
+===============
+
+The default way to write a vliw instructionr is "OUT OPC ARG LEN". This isn't always the clearest way to understand them.
+
+	For example: LONGDELAY	(Out,Opc,Arg,Len)  means  "set the outputs, longdelay (multiple * length)",
+	but  	     LOOP	(Out,Opc,Arg,Len)  means  "Loop n times{ set outputs, delay"
+
+The parser allows for any of 3 orderings:  Out/Opc-Arg/Len,  Out/Len/Opc-Arg,   Opc-Arg/Out/Len.   [Out must preceed Len, Opc must immediately preceed Arg.]
+The choice is left to the programmer, and the parser will re-order appropriately. The sanest is probably as follows:
+
+	OPCODE		VLIW1	VLIW2	VLIW3	VLIW4		Interpretation
+	------		-----	-----	-----	-----		--------------
+
+	default		OUT	OPC	ARG	LEN		Set output; do instruction taking LEN to do it
+
+	CONT		0xff	10s	cont 	- 		Set output;  Delay for Length; Continue
+	CONT		0xff	cont 	- 	10s		(alternate version, cf longdelay)
+	LONGDELAY	0xff	longdel	auto	10s		Set output;  Delay for multiple * length.
+	WAIT		0xff	wait	-	10s		Set output;  Wait. Wakeup; Delay for Length.
+	STOP		0xff	stop	-	-		Set output;  Stop.
+
+	GOTO		0xff	10s	goto	dest		Set output;  Delay for length; Jump to dest.
+	CALL		0xff	10s	call	routine		Set output;  Delay for length; Call routine
+	RET		0xff	10s	return	-		Set output;  Delay for length; Return.
+
+	LOOP		loop	n	0xff	10s		for (i=0;i<n;i++) { Set output; Delay for Length
+	ENDLOOP		0xff	10s	endloop	lbl		Set output; Delay for length }
+
+
+Note: an alternative is to use the opcode-macros, such as "__return".
+
+
+
+DO WHAT I MEAN (DWIM)
+=====================
+
+The PulseBlaster imposes some restrictions limits on the values of ARG, which ideally wouldn't be required. These are transparently worked-around by the DWIM section.
+Also, we can be more helpful with longdelay. DWIM is enabled by setting $USE_DWIM_FIX in the Configuration Section of pb_parse.php; it is ON by default.
+Note: Automatic changes result in a NOTICE or WARNING (depending on whether the conversion is exact); the comment in the VLIW file is also modified.
+
+(1) REMOVAL OF UNNECESSARY LIMITS:
+
+	LONGDELAY may now have ARG=1.
+	DWIM transparently 'demotes' the "Not-so-long-delay" to a CONT. There is no error associated with this.
+	(Previously, Longdelays had to have ARG >= 2.)
+
+
+(2) AUTOMATIC CALCULATION OF LEN,ARG FACTORS FOR LONGDELAY:
+
+	LONGDELAY with ARG=auto.
+	If ARG is 'auto' for a longdelay, then a suitable pair of values will be calculated for LEN,ARG. This uses the value given in LENGTH, and is calculated 
+	approximately by using estimate_factors(). Estimate_factors() is not necessarily exact, and does not guarantee the absolutely optimal answer in
+	some cases. However, it is always good, and has a fractional error which is very small:
+		$fractional_error < 1 / (max(ARG) * max (LENGTH)).
+	The error-analysis and mathematics is given within the comments to the source-code in estimate_factors(). Details, and the size of the error will be printed.
+	If estimate_factors() returns ARG=1, then it will be 'demoted' to CONT.
+	[This is also done implicitly, if ARG = '-' ]
+
+	For example:
+		//OPCODE	ARG		LENGTH
+		longdelay	auto		1000000000
+		longdelay	-		1000000000000
+		longdelay	auto		60_min				#this one is particularly useful.
+
+	becomes
+		//OPCODE	ARG		LENGTH
+		cont		-		1000000000			#was demoted
+		longdelay	233		4291845494			#arg automatically calculated
+		longdelay	84		4285714286			#assuming 10ns clock tick. [Error of 24 ticks]
+
+
+(3) PROMOTION OF OVER-LONG CONT:
+	If CONT has a delay which is too long, then it will be 'promoted' to a Longdelay. LENGTH will be approximately factorised.
+	[Note that DEBUG and MARK aren't promoted like this, even though they are equivalent to CONT. Renaming them would alter their purpose.]
+
+
+(4) OVERLOADED STOP (set outputs).
+	This isn't really a DWIM, because it adds an extra instruction. So it's done before the DWIM section.
+
+
+(5) LOOP (0) ("Zeroloop") converted to GOTO.
+	If LOOP has ARG=0, it means "loop ZERO times through the code, jumping directly to the instruction AFTER the corresponding ENDLOOP". Ideally, this would have
+	exactly the same effect as commenting out the entire loop (but this would require some really horrible regexp hackery). So we jump to addr_of(matching(endloop))+1.
+	The outputs are set equal to the destination outputs, and the length is set to short. This is almost perfect; the zeroloop doesn't affect the outputs, and is
+	"nearly(*)" instantaneous. [The loop body that is skipped is turned into a set of "never"s]. Adjacent zeroloops are merged (as expected). See loops.txt for more.
+	
+	(*) How instantaneous is "nearly"? If the dest is a "cont", of length > (2*short), we can steal time from it, and "nearly" means "exactly". Otherwise, pb_parse will
+	steal back as much as it can, and will warn. If dest is cont/goto/call/return/endloop, it's treated like cont; time cannot be stolen from other dest opcodes.
+
+	For example:
+
+		lp1:	loop  	0	0x01	100_ticks
+			cont	-	0x02	200_ticks	//loop body.
+			endloop	lp1	0x03	300_ticks
+			cont	-	0x04	400_ticks
+
+	becomes:
+
+		lp1:	goto	3	0x04	9_ticks		//Loop 0 jumps to one after the endloop. Output is copied from there. Len is "short" (and later compensated).
+			never	-	0x02	200_ticks	//not executed
+			never	-	0x03	300_ticks	//not executed. Endloop -> cont -> never, so as to keep other loop/endloop balance checking happy.
+			cont	-	0x04	391_ticks	//we jump to here. Take 9 ticks ("short") away, to compensate for the 9 used by the GOTO.
+
+	N.B. If the jump-destination's output was "same", this will still be wrt the instruction at n-1, i.e. the endloop, even though that instruction isn't now executed.
+	This is the correct behaviour, but is somewhat confusing. (It differs from what would happen if the entire loop....endloop were commented out).
+
+	
+	
+BITWISE_CHANGES
+===============
+
+OUTPUT is normally a literal value to be sent to the output lines of the PulseBlaster. However, the parser implements three types of MODIFIED output, for convenience.
+This is useful to save lots of dead-reckoning: can set one bit without having to state the value of the remaining 23 (which the parser already knows).
+These are: BITWISE_CHANGES, ARITHMETIC_CHANGES and SAME.
+
+  - If the output field of an instruction is "same", then the parser interprets this as "the same value that was in the previous(*) OUTPUT".
+
+  - If the output field begins with "bit", then the parser interprets this as "the value from the previous(*) OUTPUT, MODIFIED by a bitwise change."
+
+  - Arithmetic changes are considered a special case of BIT.
+
+  - The calculation is done at COMPILE-TIME, by the parser; IT IS NOT EXECUTED AT RUN-TIME by the PulseBlaster.
+
+The bitwise change takes the form of one or more modifications to be successively performed on the previous(*) output value. If there are more than one, they are
+separated by commas  (but not spaces!). The commas are REQUIRED.  Calculations are done FROM LEFT TO RIGHT. Each modification has the form:
+        bit_foo(xxx) 	 where foo is the command, and xxx is the number (in the form hex,dec,binary). 	[xxx may also have been #define'd, as usual].
+
+For example:
+	- bit_set(0xff)				sets all the bits in the lower byte.
+	- bit_set(0xff00),bit_clear(0x00ff)	sets all the bits in the middle byte, clears all the bits in the lower byte (and leaves the upper byte untouched).
+	- bit_set(0x1),bit_clear(0x1)		is equivalent to bit_clear(0x1), since the calculations are done from LEFT to RIGHT.
+	- bit_rrf(1)				rotates the output one step to the right.
+
+The commands are as follows.  Some commands have synonyms which may be used if they improve clarity. (eg "AND" may sometimes be thought of more lucidly as "MASK").
+
+	BITWISE INSTRUCTIONS (Synonyms)
+	  - bit_set(xxx)     bit_or(xxx)	- Sets the bits of the previous OUTPUT which are '1' in xxx.   	(i.e. ORs the previous OUTPUT with xxx.)
+	  - bit_clear(xxx)   bit_clr(xxx)	- Clears the bits of the previous OUTPUT which are '1' in xxx.	(i.e. ANDs the previous OUTPUT with NOT(xxx).)
+	  - bit_and(xxx)     bit_mask(xxx)	- ANDs the previous OUTPUT with xxx.    			(i.e. MASKS off all bits in the previous OUTPUT which are NOT '1' in xxx.)
+	  - bit_flip(xxx)    bit_xor(xxx)	- Flips the bits of the previous OUTPUT which are '1' in xxx. 	(i.e. XORs the previous OUTPUT with xxx.)
+	  - bit_xnor(xxx)    bit_xnr(xxx)	- XNORs the previous OUTPUT with xxx. 				(i.e. XOR, invert, and mask at 24-bits).
+	  - bit_nand(xxx)			- NANDs the previous OUTPUT with xxx.				(i.e. AND, invert, and mask at 24-bits)
+	  - bit_nor(xxx)			- NORs the previous OUTPUT with xxx.				(i.e. OR, invert, and mask at 24-bits)
+
+	ARITHMETIC INSTRUCTIONS	 (These aren't really "bitwise", but they fit in well here.)
+	  - bit_add(xxx)			- ADDs xxx to the previous OUTPUT.    		Any CARRY is discarded, i.e. we wrap at 24-bits. A warning will be emitted if so.
+	  - bit_sub(xxx)			- SUBTRACTS xxx FROM the previous OUTPUT	Modulo 24-bits. A Warning will be emitted if we wrap around.
+	  - bit_bus(xxx)			- SUBTRACTS the previous OUTPUT FROM xxx.	Modulo 24-bits. A Warning will be emitted if we wrap around. 'bus' is 'sub' backwards.
+
+	BIT SHIFT INSTRUCTIONS	 (These move 'n' steps; n=1 is a single step; n=0 is a no-op)
+	  - bit_rrf(n)				- ROTATES the previous OUTPUT n steps to the right. For each step, the previous LSB is now the MSB.  ["rrF", "rlF" by analogy with Microchip PIC.]
+	  - bit_rlf(n)				- ROTATES the previous OUTPUT n steps to the left.  For each step, the previous MSB is now the LSB.
+	  - bit_src(n)				- SHIFTS the previous OUTPUT n steps to the Right and Clear. The previous LSB is discarded, and the new MSB is zero.
+	  - bit_slc(n)				- SHIFTS the previous OUTPUT n steps to the Left and Clear. The previous MSB is discarded, and the new LSB is zero.
+	  - bit_srs(n)				- SHIFTS the previous OUTPUT n steps to the Right and Set. The previous LSB is discarded, and the new MSB is one.
+	  - bit_sls(n)				- SHIFTS the previous OUTPUT n steps to the Left and Set. The previous MSB is discarded, and the new LSB is one.
+
+	  
+(*) WARNING: The "previous" output ALWAYS means the "one in the previous (memory_location - 1) instruction". This is not nescessarily "the previous (most recently 
+    executed) instruction". The latter would often be more useful - but we can't always define it uniquely. Such possible confusion occurs if the current line is a 
+    DESTINATION of a jump (including revisiting the start of a loop). The parser warns stridently when this happens, (but does not throw a fatal error, since it might be intentional).
+    This warning is usually very helpful. However, if this is deliberate, use the error-control prefix operator to squelch the warning. Eg '@same' or '@bit...' 
+    Using bit/same as the first instruction in a subroutine is highly risky; using it as the first instruction in a macro is fine (and does what you want).
+    ## WARNING: it is very easy to accidentally introduce bugs with this feature, especially when a loop begins with bit/same, because all other programming languages work differently.
+    ## Remember that the PulseBlaster has no variables, and the parser is faking their existence for greatly convenient syntactic-sugar. 
+    Parser warnings occur for: the first instruction inside a loop, the instruction after a call/return/goto. 
+	  
+  Note 1:  Underscores ('_') are optional for clarity.
+  Note 2:  All of this is sane for 24-bit outputs (but would currently break if the PulseBlaster outputs were > 31 bits wide on a 32-bit compiler; this would be detected as an error).
+  Note 3:  Some other instructions which we could easily implement (but haven't):  bit_mul  [use rlf instead]; bit_div [use rrt instead]; bit_2complement; bit_swap [swap nibbles].
+  Note 4:  Expressions may be used inside bit_*
+  Note 5:  WARNING: the calculations are done in the PARSER, not the PulseBlaster!  So this (pseudo) code will NOT do what you want/expect:
+		output 0x0f
+		loop   5{	
+			bit_invert(0x1)			#Bit0 does NOT flash on and off 5 times, as you might hope!
+			output 0xff			#ALSO, bits 4-7 DO flash on and off 5 times, as you might not expect!!
+		}
+
+  Q.  When is it safe to begin a loop with bit/same?  ("Safe" means that nothing unexpected/undesired will happen, and it is OK to use the silence '@' operator to squelch the warning.)
+  A1  The full output (on all bits) at the 1st instruction of the loop must be wrt ONLY the instruction before the loop. Usually this applies if and only iff the overall effect of the loop-body leaves the outputs unchanged.
+			
+		
+
+EXPRESSIONS and OPERATORS
+=========================
+
+Expressions may be used as any of the 3 numeric columns (OUTPUT,LENGTH,ARG). Expressions are evaluated by the parser. The operators are:
+
+BITWISE OPERATORS:	#These are most useful with the outputs.  (May not be used for lengths)
+	( , )		Parentheses - change precedence.
+	| , &		Bitwise OR and And
+	^ , ~		Bitwise Invert and XOR
+	<<n , >>n	Bit-shift left,right by n.
+
+MATHS OPERATORS:	#Most useful with length calculations, or changing the loop-arg.
+	( ,  )		Parentheses - change precedence.
+	+ , -		Add, Subtract
+        *		Multiply
+        /		Divide. Note: this is PHP's divide operator, which is *not* integer-division. Eg  7/2 is 3.5, not 3.
+        %		Modulus (ie remainder). Note that this behaves badly when operands exceed 0x7fffffff on a 32-bit CPU.
+                        Hint: to do integer division, combine '/' and '%',  eg:   (7-(7%2)/2) is 3.
+
+COMPARISON OPERATORS:	#Most useful when combined with the ternary operator.
+	== ,  !=	Is equal, is not equal. (Returns boolean, PHP may cast this to 1/0)
+	<  ,  >		Is less than, is greater than
+        <= ,  >=	Is less than or equal, is greater than or equal.
+
+LOGICAL OPERATORS:	#The most useful is the ternary, which allows one #define to conditionally select between others.
+	!		Not
+	&&,  ||		And, Or
+	?,    :		Ternary operator.   Expr ? val_if_true : val_if_false.  E.g.  (2==3)?7:9   evaluates to 9.
+
+ERROR_CONTROL:		#Used to silence specific warnings when you know they are inappropriate. Use with great care, when certain it's intentional.
+	@		Use '@same' or '@bit...'  to squelch the warning that arises if this is also a jump-destination. [overridden by scream (-S) or debug (-d)].
+
+UNITS:			#In the case of lengths only, suffixes may be used.
+	short		The smallest possible interval.
+	ps,ns,ms,us	Fractions of a second
+        ticks		Explicitly in ticks.
+	s, ks, Ms	seconds, kiloseconds, Megaseconds.
+	hr,min,day,week Larger units of time. (Ambiguous units eg month aren't allowed).
+
+NUMBERS:		#Numeric formats.  (Note: Octal is illegal)
+	1234		Decimal
+	0xFEDBCA	Hex (0x and 0X forms both ok)
+	0b101010	Binary
+	0xFF_FF_FF	Underscores are ignored, but useful for clarity.
+
+
+EXAMPLES:
+
+The bitwise logical operators e.g. '|' can be used to join two or more numbers, with a bitwise operation. This is intended for use within OUTPUTS. A set of 
+OR'ed bits/numbers can be used anywhere an ordinary number is used. (this includes macro definition/evaluation and within a bitwise_change). This is useful 
+when specifying certain data lines. E.g.:
+
+    #define CLOCK  0x40			//clock is on bit 3
+    #define TRIG   0x200 		//trig is on bit 9
+
+    We can then directly output the value:  CLOCK|TRIG
+    Or, we can set these lines only:  bit_set(CLOCK|TRIG)
+    Or we can even use them inside a macro.
+
+The arithmetic operators are is useful when defining relative lengths. For example:
+
+    #define T  10us
+
+    [output]	T		cont 	-	//do something for length T
+    [output]	T*2		cont 	-	//do something for twice as long.
+    [output]    T*2+30us	cont	- 	//do something for 50us.
+
+The ternary and comparison operators are useful when conditionally #defining things. For example:
+
+    #define X  100
+    #define Y  200
+    #define P  3
+    #define Q  4
+    #define Z  (Y>X)?P:Q		//equals 3
+
+  Note 1: This is evaluated using PHP's eval(). It is well-behaved for floats, and integers that exceed PHP_INT_MAX (but be careful of '%').
+  Note 2: Expressions may NOT contain spaces; otherwise the column parser will eat them, and split the expression into tokens,
+  Note 3: The result of expressions MUST be an integer. Non integer ARG/OUTPUT will cause a fatal-error. Non-integer LENGTH will be rounded, with a notice.
+          A length with dimensions (eg '33.7us') may contain a decimal fraction, but a fractional number of clock-cycles (eg '9.7 ticks', or just '9.7') is meaningless.
+  Note 4: Dimensional sanity is important:  Eg '10us*10us' would be dimensionally inconsistent. '(1us+2ms)*3' is ok.
+  Note 5: The maximum ordinary delay at 100 MHz is only 42.9 seconds. Max longdelay is ~ 2 years.
+  Note 6: Expressions may be used inside bit_*, but not vice-versa.
+  Note 7: Recommendation: use brackets generously. As with the C-preprocessor, operator precedence can confuse. Eg  x=3, y=2+x, z=7*y can mean z=7*2+3  giving 17, not 35.
+  Note 8: Expressions should match the Regex $RE_EXPRESSION, i.e. (([a-zA-Z0-9._+*\/%()&|^~?:-]|==|!=|\<=|\>=|<<|>>|\<|\>)*)
+
+
+
+DESTINATIONS
+============
+
+A line of codes is considered to be a (potential) "destination" if it is the target of a jump. This is:
+	(i)  A target of GOTO,ENDLOOP, or CALL.  We detect these by knowing that they must be labelled.
+	(ii) A target of RETURN. We detect this since the previous ($i-1) instruction must have been a CALL.
+
+If a vliw instruction is a destination, then the bitwise_changes will not necessarily do what is expected: since they ALWAYS refer to the previous "(memory_location -1)"
+instruction, as opposed to the previous "most recently executed" instruction. The compiler will warn in this case, but not fail, since this might be entirely deliberate.
+
+  Note 1: If a GOTO, ENDLOOP, or CALL instruction uses a numeric address in ARG, rather than a label, the compiler will emit a warning, since it would break heuristic (i).
+  Note 2: If a label is present, but unused, it will still trigger is_destination(). So, try to avoid using labels which are not required!
+  Note 3: Macro inlining/evaluation does NOT count as a jump; macros are *not* subroutines or functions; they are inlined shorthand.
+  Note 4: Compare the INTERCAL "COME FROM" instruction :-)
+
+
+
+FUNCTIONS, MACROS and SUBROUTINES
+=================================
+
+INTRODUCTION
+------------
+
+The PulseBlaster cannot have functions as it isn't Turing-complete. It natively has Subroutines; to increase flexibility, we have added macros.
+None of these can use variables, conditionals or return values. However, macros can take parameters.
+
+
+SUBROUTINES
+-----------
+
+These are native to the PulseBlaster:  use the CALL and RETURN instructions. There is a hardware limitation on stack-depth.
+Subroutine code may be defined anywhere in the source, but it is recommended to put them at the END. (Otherwise, you must jump over them).
+Unused subroutines are compiled; the parser can't tell, though the simulator will warn about unused code.
+
+
+MACROS
+------
+
+"Macros" in this context are essentially shorthand. They get inlined by the parser, rather than being called/executed at runtime. This means they can take
+parameters. Each time a macro is used, it will be inlined in full. (This makes them efficient for the human, but inevitably they use lots of space on the device.)
+After the #defines have been substituted, all #macro definitions are read in. Then, the macro calls are replaced by their definition, with substitution of
+arguments. Macros may be nested. If a macro is unused, it will not be inlined (though the parser will warn).
+
+
+DEFINITION:
+
+    Macro definition is thus:
+
+	#macro macroname ( $arg1, $arg2, ...){
+		//Contents of macro.
+		//$arg1, $arg2 etc may be used here.
+	}
+
+    - The keyword "#macro" is required. [It must not have a trailing colon: it's a keyword not a labels]
+    - macroname may contain [a-z0-9_] and must start with a letter. (The same rule applies to labels, parameter-names etc).
+    - Whitespace is optional; the braces {} may be on their own lines or not, as desired.
+    - The parameters are listed within (), and there can be as many as desired. Parameters are separated by commas; just use use () if there are none.
+    - The parameter names must begin with a $, and have the same pattern as macroname, i.e. [a-z0-9_], but starting with a letter.
+    - Parameters are (obviously) local constants within a macro.
+    - The macro body may contain anything normally permitted, including labels (see note), other macro calls (but see NESTING), and #defined constants.
+
+
+EVALUATION:
+
+    Macros are invoked (i.e. called/inlined/evaluated) thus:
+
+	[label:]  macroname ( 123, 456 )   [//comment]
+
+    - The macro must be on a line of its own, although a leading label, and trailing comment are allowed. Whitespace is permitted. (There is no terminating ';').
+    - macro arguments may be any expression (numbers,operators,units), but not bit_*  (although you can pass arguments separately as 'SET' and '0x01').
+    - Optional and default arguments are not supported.
+    - Parameter substitution relies on the $parametername being delimited on both sides by non-word characters, just like #define.
+    - Parameters are PARENTHESISED *automatically*. Eg a macro that does '3*$n', called with $n as '5+1' will calculate 3*6, rather than 3*5+1.
+      (This does what you expect; but it's opposite to the behaviour of consecutive #defines.)
+
+      
+CONDITIONALS:
+  
+    Conditionals inside a macro are syntactically ugly, but extremely useful. Consider a macro-body with these two lines:
+    
+        #if(X%2)    //do something			<-- A.
+        #if($x%2)   //do something else    		<-- B.
+        
+    A. This line is conditionally en/dis-abled at the #if/#ifnot stage, before macro evaluation.  (Since X is a constant, it doesn't matter where this happens anyway).
+    B. This line contains a '$' sign, and so the first pass of #if/ifnot-processing allows it to fall-through, intending that $x will be evaluated within a macro.
+       Then, after macro-processing, the line is either enabled or disabled (depending on the macro parameters).
+       
+    The "do_something" cannot itself be a macro invocation. 
+    See pb_parse.php:process_ifsifnots() for more details.
+      
+
+LABELS:
+
+    Labels inside a macro body are of 2 types: public and private.
+
+    - A private label is one which is contained solely within the macro, (eg for a loop). These must be globally unique, so, when the macro is inlined, "labelname:"
+       is replaced by "macroname_usecount_labelname:". Exception: if the macro call is itself labelled (labelX), AND there is a private label on the first line of
+       the macro body (labelY), then instead of using "macroname_usecount_labelY", we use "labelX" when the macro is inlined.
+
+    - A public label is a label which is used, but not defined in the macro. For example "goto end". These are not modified. Thus, you can jump OUT of a macro, but
+       not INTO one.
+
+    - If a macro body contains NUMERIC args for jump destination, then BAD things will happen when it is inlined. The compiler will warn, but not exit.
+
+     (Summary: this does what you'd expect.)
+
+
+NESTING:
+
+    A macro may call another nested macro up to a depth of $MAX_MACRO_INLINE_PASSES.
+    This value is defined in the configuration section of pb_parse, and is normally 3; the value could be increased a little if needed.
+    Infinite recursion, or calling a macro from within itself will fail. See the source: "DOCREFERENCE: MACRO-NESTING".
+
+    - $MAX_MACRO_INLINE_PASSES = 0     Macros will never get inlined. Illegal.
+    - $MAX_MACRO_INLINE_PASSES = 1     Macros will be inlined. Nesting will sometimes work: macros defined earlier may be called from within those defined later, but not vice versa.
+    - $MAX_MACRO_INLINE_PASSES = 2     Nesting will work in either order, but only 1 deep.
+    - $MAX_MACRO_INLINE_PASSES = n     Nesting up to n-1 deep (sometimes n, depending on ordering) is possible. More than that will fail.
+
+
+SAME/BITWISE:
+
+    Using SAME/Bitwise within a macro body (including the first line), or directly after a macro ends is perfectly sensible, and well-behaved. The macro is inlined, so
+    the "previous" instruction is always the "previous" instruction.
+
+
+ERRORS:
+
+    Fatal Errors will arise if:
+     - macro names are duplicated			- macro definitions are misformatted
+     - macro definitions are nested.			- macros are called with the wrong number of arguments
+     - macro body contains an unknown parameter		- Call to an undefined macro.
+
+    Warnings are emitted if:
+     - A macro body doesn't use all its args.
+     - A macro is defined, but is never used.
+
+    Not trapped:
+      Other syntax errors. For example, the wrong number of tokens in a line. These will be trapped later.
+
+
+
+OPCODE MACROS
+=============
+
+As an aid to clarity, some macros, such as __goto  have been defined. These allow a program to be written "as if" GOTO were instantaneous, and doesn't change the outputs.
+It simply merges into the previous (or subsequent) instruction, (which must therefore be a "cont -"). An alternative is simply to use the re-ordered VLIW instructions.  
+Note: these opcode macros offer an alternative way of *thinking* about the program, not a difference in the compiled result.
+
+    Macro			Merges with 			Macro needs label
+    -----		 	-----------			-----------------
+
+    __CALL     addr		Previous   CONT -		no
+    __GOTO     addr		Previous   CONT -		no
+    __RETURN   			Previous   CONT -		no
+    __LOOP     n		Subsequent CONT -		required
+    __ENDLOOP  addr		Previous   CONT -		no
+
+
+Thus, for example:
+
+	lpstrt:	__loop  3
+		0xff	cont	-	10s		//Note: at least 2 instructions are required "inside" the loop.
+		0x11	cont	-	20s		//and both of the end ones MUST be CONTs.
+		__endloop  lpstrt
+
+    is equivalent to (but perhaps clearer than):
+
+	lpstrt:	0xff	loop  	-  	10s
+		0x11	endloop	lpstrt	20s
+
+
+Obviously, one might want to have nested constructs such as 2 consecutive __LOOP  macros.  This can't be done: it shows the limitations of the opcode_macro hack.
+(This is a fundamental limit of the PulseBlaster: we can't really have flow-control without delays/outputs, even though we might sometimes be able to pretend to).
+
+[Unlike zeroloop, this doesn't just steal some cycles from the target-line; it merges with it. So the merged instruction needn't have extra length.]
+    
+The other opcodes don't have macros: it would either be silly (__cont, __longdelay) or unclear (__wait) or already overloaded (__stop). Likewise, the mergee line 
+could be a longdelay, but then we'd have to split it into two anyway.
+    
+[Note that DEBUG and MARK are usually equivalent to CONT, but not here. They would be consumed by the transformation, so defeating their purpose 
+(eg "__loop, mark, debug, __endloop"  would become "loop, endloop") .]
+
+
+
+EXECUTABLE INCLUDES
+===================
+
+Executable includes are a means of more sophisticated preprocessing. For example, using expressions (and the ternary operator) to implement a sort() is possible, but
+exceptionally hard. #execinc means "execute this program, and include the result".
+
+
+The syntax is:
+
+	#execinc  progname  ARG1  ARG2  ARG3 ....	//comment.
+
+This does the following:
+
+	[...by now, #includes and #defines have already been processed.]
+	Find progname. If specified with absolute path (leading '/'), use that; otherwise search `dirname (source_file)`.  It doesn't search $PATH.  Check it exists.
+	If progname is executable, it will be invoked directly. If not, it will be invoked with "/usr/bin/php -f"
+	For each ARG, attempt to parse it with parse_expr(). If this succeeds, ARG becomes the result of parse_expr(); otherwise it's left unaltered. Then use escapeshellarg().
+	Now, execute the program. Check that it returns 0.
+	Stderr is passed straight through (except with -Q).
+	Stdout is now inserted into the input-stream of the pbsrc file at that point. Stdout should contain pbsrc code, usually lots of #defines.
+	[...other #execinc files are processed; any new #defines are evaluated; and parsing of the input stream continues.]
+
+
+  Note 1: The #execinc'd file can output any .pbsrc code, except for '#include', '#execinc' and '/* ... */', which have already been parsed. Usually, it would output a series
+	    of #define's. It should exit (0) on success.
+  Note 2: The #execinc line uses escapeshellarg(). So '-flag' can be used, but most shell-tricks (eg redirection) may not. The ARGs are concerted from EXPRESSIONS to their
+	    numeric values wherever possible.
+  Note 3: For maximum portability, it's recommended to use '<?php ... ?>' in the file, rather than '<? ... ?>'. The #execinc'd file needn't have a .pbsrc extension.
+  Note 4: See docs/execinc.txt  for an example.
+  Note 5: Alternatives to #execinc are to use the ternary operator in expressions (for simple cases), or the #include a header file that is generated elsewhere, or use -Dfoo=bar.
+  Note 6: #execinc is a potential security hole, so it's only supported when -X is given on the commandline. Without -X, the $cmds will just be printed: useful as a check.
+
+SECURITY WARNING: Beware of untrusted code. A malicious line in a pbsrc file can now run any program on the host at *compile* time! Consider: #execinc rm -rf  /home/example
+This would be bad: it's off by default (unless -X); can  also configure $ENABLE_EXECINC=false. (NB: partial workarounds are worthless: must protect against malice, not accident).
+
+
+
+PARSER NOTES
+============
+
+  - The parser tries very hard to validate that everything is sensible, and will complain if you violate any of the above rules.
+
+  - We account (later) for the n-cycle inherent delay in pb_functions.pb_write_vliw(), so the .pbsrc file doesn't need to care about it.
+    Likewise, we account (later) for the loopcount offset (the loop-counter is "1-based" in the hardware!). This is also done by pb_functions.pb_write_vliw().
+    For more details, see quirks.txt
+
+
+
+PBSRC STYLE
+===========
+
+  - It is very strongly recommended to reserve the first column for labels.
+
+  - Indentation of loops is a matter of preference - it improves clarity of the loop nesting, but messes up the column layout.
+
+  - Underscores and commas may be used as desired to separate figures. They are completely ignored. Eg "25,000"  or "25_ns" or "0b1000_0001,1000_0001,1000_0001".
+    Exception: In the bitwise changes, commas are required between multiple commands, (but are ignored within the numbers, as usual).
+
+  - By convention, DEFINED_CONSTANTS are uppercase and labels are lower-case. It may be helpful to uppercase opcodes other than cont, in order to make them easier to see.
+
+  - Use VLIW reordering to maximise clarity:    "Loop n  0xff 10s",    vs  "0xfe 5s call addr"
+
+  - It is a very good idea to put #defines first, then macro definitions, then the rest of the code.
+
+  - Obviously, since code execution begins at the first line of code, SUBROUTINES must go at the end (or be jumped over).
+
+  - Programs ought to end with either GOTO or STOP. Otherwise, the final behaviour of the hardware will be undefined.
+
+  - Avoid really perverse code flow. Just because the architecture allows it doesn't mean you should! For example, placing a subroutine inside a loop body, and jumping over it.
+
+
+
+EXAMPLE PROGRAM
+===============
+
+Here is a very simple example (walking leds). For a longer example, see pbsrc_examples/example.pbsrc, or use the example template generated by `pb_parse -e`.
+
+  //LABEL	OUTPUT				OPCODE	ARG		LENGTH		//comment
+
+  label_zero:	0x249249			cont	-		25000000	//Output 00100100 10010010 01001001 for 0.25 sec
+
+		0x492492			cont	-		0x17d7840	//Output 01001001 00100100 10010010 for 0.25 sec
+
+		0b1001_0010,0100_1001,0010_0100	GOTO	label_zero	0.25s	 	//Output 10010010 01001001 00100100 for 0.25 sec, then Goto beginning

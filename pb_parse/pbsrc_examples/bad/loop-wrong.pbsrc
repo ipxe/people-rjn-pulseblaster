@@ -1,0 +1,36 @@
+//Demonstration of what NOT to do....
+
+
+/*This is a test of the LOOP and ENDLOOP opcodes.
+
+This program ought to
+   a)Output 0x1	 for 3 seconds.
+   b)Loop exactly 5 times:
+	Output 0x80 for 1 seconds
+	Output 0x100 for 1 seconds
+   c)GOTO start
+   d)Repeat.
+*/
+
+//Note that both ENDLOOP and LOOP execute on every single pass, and that their lengths and outputs occur each time.
+
+//WRONG WAY OF DOING IT. Misunderstanding of how Loop and Endloop work.
+//This is inefficient (several instructions are unnecessary), and glitchy (!!).
+//The "same" at addr 1 causes LED0 to glitch at the start of each loop: to see this, either increase the shorts,
+// or simulate with -ptq -u 50. Note that Endloop jumps back to the (start of the) loop instruction, not one past it.
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment	//address
+
+//Simple Version
+
+start:		0x1		cont		-		3s		//LED 0		0
+
+lp1:		same		loop		5		short		// 		1
+
+		  0x80		cont		-		1s		//LED 7		2
+		  0x100		cont		-		1s		//LED 8		3
+
+		same		endloop		lp1		short		//		4
+		same		goto		start		short
+

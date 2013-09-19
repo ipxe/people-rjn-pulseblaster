@@ -1,0 +1,67 @@
+/*This is a test nested CALLs and RETURNs This program ought to
+   a)Output 0x1	 (LED 0) for 5 seconds
+
+   b)Call into 8 nested subroutines. OUTPUT LED, then call.
+
+	   Output 0x10 (LED 4) for 1 second
+	   	Output 0x20 (LED 5) for 1 second
+	   		Output 0x40  (LED 6) for 1 second
+	   			Output 0x80  (LED 7) for 1 second
+	  				 Output 0x100  (LED 8) for 1 second
+   						Output 0x200  (LED 9) for 1 second
+   							Output 0x400  (LED 10) for 1 second
+   								Output 0x800  (LED 11) for 1 second
+
+   c)Output 0x2  (LED 2) for 2 seconds (at max depth).
+
+   d)Return from the subroutines.
+
+   								Output 0x800	 (LED 11) for 1 second
+   							Output 0x400	 (LED 10) for 1 second
+   						Output 0x200	 (LED 9) for 1 second
+	  				 Output 0x100	 (LED 8) for 1 second
+	   			Output 0x80	 (LED 7) for 1 second
+	   		Output 0x40	 (LED 6) for 1 second
+	   	Output 0x20	 (LED 5) for 1 second
+	   Output 0x10 (LED 4) for 1 second
+
+   e)Repeat
+
+
+Note 1: The use of SAME is deliberately the value BEFORE the subroutine, not the most-recently executed output. But it causes
+	compiler warnings.
+*/
+
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		0x01		call		sub1		5s		//bit 0
+		same		goto		start		short		//repeat
+
+sub1:		0x10		call		sub2		1s		//bit 4
+		same		return		-		1s
+
+sub2:		0x20		call		sub3		1s		//bit 5
+		same		return		-		1s
+
+sub3:		0x40		call		sub4		1s		//bit 6
+		same		return		-		1s
+
+sub4:		0x80		call		sub5		1s		//bit 7
+		same		return		-		1s
+
+sub5:		0x100		call		sub6		1s		//bit 8
+		same		return		-		1s
+
+sub6:		0x200		call		sub7		1s		//bit 9
+		same		return		-		1s
+	
+sub7:		0x400		call		sub8		1s		//bit 10
+		same		return		-		1s
+	
+sub8:		0x800		cont		-		1s		//bit 11
+		0x02		cont		-		2s		//bit 2
+		0x800		return		-		1s		//bit 11
+
+

@@ -1,0 +1,22 @@
+/* Simple example of call and return */
+
+/* Turn on LED_0  (1 sec)
+   Turn on LED_7, (1 sec), then call sub1.
+   Turn on LED_8  (1 sec),
+   Turn on LED_15 (1 sec), then return
+   Stop with all LEDs on.
+
+Note that this conceptualises the call/return happening after the delay.
+The Opcode really "executes, taking the length to do so." (the result is the same)
+*/
+
+
+//LABEL:	OUTPUT			OPCODE		ARG		LENGTH		//comment
+
+		0x1			cont 		-		1s
+		0x80			call		sub1		1s
+		0xffff			stop		-		-
+
+sub1:		0x100			cont		-		1s
+		0x8000			return		-		1s
+

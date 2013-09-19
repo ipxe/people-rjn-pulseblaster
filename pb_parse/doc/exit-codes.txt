@@ -1,0 +1,1 @@
+The parser exits with 0 on success and 1 on failure. A failure is always preceeded by an explanation message to STDERR.

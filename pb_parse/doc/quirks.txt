@@ -1,0 +1,28 @@
+== INTRODUCTION ==
+
+The hardware has some quirks. These are quirks are essentially implementation neccessities/bugs in the hardware, which should 
+ideally not be there at all. We try to abstract them away as much as possible.
+
+Essentially, the model provided by pb_parse is ideal: you can usually forget entirely about latencies and offsets. Just specify the
+values that you actually want. [If a minimum value is violated, the parser will emit an error.]
+
+How it actually works: 
+  1) pb_parse tests that the values are within range, and generates a .vliw file, representing an "ideal" pulseblaster.
+  2) pb_prog reads in the .vliw file, and "corrects" the numbers so that the hardware sees what it needs to. 
+
+
+== MORE INFO ==
+
+See also: 
+	latencies.txt					#quick explanation
+	loops.txt 	(here)			
+	longdelay.txt
+	wait.txt  	(here)
+		
+	../../pb_utils/doc/latencies.txt		#detailed explanation
+	../../pb_utils/doc/loops.txt
+	../../pb_utils/doc/longdelay.txt
+	../../pb_utils/doc/wait.txt
+
+	../../pb_utils/src/pulseblaster.h		#configuration, via pb_print_config.
+

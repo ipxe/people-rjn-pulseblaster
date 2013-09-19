@@ -1,0 +1,20 @@
+It would be nice if there were a one-one relation between jumps and destinations. If that were so:
+
+ - We'd be able to create $jumps_array  where KEY=source_addr and VALUE=dest_addr.  [This could be searched, instead of using is_destination()]
+
+ - We'd be able to improve "same" and bitwise to be wrt most recently *executed* instruction. If that were the case:
+
+     -  SAME after a RETURN is easy. The exit value of a subroutine is always defined.
+     -  SAME after an ENDLOOP is not so easy. Must choose - wrt start or end of loop?
+     -  SAME after a CALL might work, but we'd have to check for conflict - if we only call the subroutine from one place, why use a subroutine in the first place?
+     -  SAME after a GOTO might work. must check for conflict. (Compare "COME-FROM" in INTERCAL!)
+
+
+
+Incidentally, the function is_destination() could be made perfectly accurate - but it is hard work for little reward:
+    - We'd need to wait till end of parsing tokens and *then* check whether ANYTHING in $args_array has this value, AND the opcode is call/goto/endloop.
+    - We'd need to deal with ARG of endloop,call,goto  (if numeric, not labels)
+    - But all we gain is to avoid some warnings.
+
+
+SUMMARY: This would be nice, but it's theoretically impossible.

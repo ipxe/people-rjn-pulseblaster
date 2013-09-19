@@ -1,0 +1,17 @@
+/*This is a test of the (non-overloaded) STOP opcode. This program ought to
+   a)Output 0x1  for 1 second
+   a)Output 0x80 for 2 seconds.
+   b)STOP
+
+It should not:
+   i)Output 0x100 (Since STOP ignores its output, UNLESS overloaded.)
+  ii)Output 0x8000 (Getting past STOP)
+
+*/
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+		0x1		cont		-		1s		//LED 1
+		0x80		cont		-		2s		//LED 7
+		-		stop		-		-		//output is ignored - ordinary stop opcode
+		0x8000		cont		-		2s		//Never get here.

@@ -1,0 +1,77 @@
+//Pixel characterisation. 
+//  Clock the sensor to the given pixels
+//  Trigger the ADC
+//  Wait T0
+//  Enable the read follower.
+//  Wait T1
+//  Repeat 3x:
+//      Reset it  (for T2)
+//      Integrate (for T3)
+//  Stop.
+
+//Options: OPT_PREORIGIN prevents clocking properly onto the array... use for experimentation only.
+//         OPT_EARLYADC  starts the ADC before we have clocked into place; thereby capturing the transients. 
+//         OPT_LOOOPBACK causes LINE3 to be treated as a signal, and to be toggled at relevant moments.
+
+//Configuration:  Use -D to define the 4 pixel-coordinate-pairs, the 5 times, and the options.
+
+//Important definitions.
+#include "hawaii.h"
+
+//The pixels of interest in each quadrant.
+#define Q0_X		#what	
+#define Q0_Y		#what
+#define Q1_X		#what
+#define Q1_Y		#what
+#define Q2_X		#what
+#define Q2_Y		#what
+#define Q3_X		#what
+#define Q3_Y		#what
+
+//      T_DIG   is defined with default in hawaii.h
+#define	T_INIT		#what
+#define	T_RENABLED	#what
+#define	T_RESET		#what
+#define	T_EXPOSE	#what
+
+#define OPT_PREORIGIN   #default:0
+#define OPT_EARLYADC    #default:0
+#define OPT_LOOPBACK	#default:0
+
+//Now calculate the stepping required.
+#execinc "clock_calc.php" CLOCK_CALC_STEPS  PIXEL0  LINE0   PIXEL1  LINE1    PIXEL2  LINE2   PIXEL3  LINE3     Q0_X Q0_Y    Q1_X  Q1_Y    Q2_X Q2_Y     Q3_X  Q3_Y
+
+//Print the co-ordinates we are *aiming* for.
+#echo Configured Coordinates are:    Q0_X,Q0_Y     Q1_X,Q1_Y,   Q2_X,Q2_Y    Q3_X,Q3_Y
+
+//Macro definitions.
+#include "macros.pbsrc"
+
+//Checks
+#assert T_DIG     >=  50ns
+#assert T_RESET   >=  1us
+#assert T_EXPOSE  >=  10us
+
+//Now for the main program...
+			initialise() 						//Set the initial absolute bit states. Must come first.
+
+#if(OPT_EARLYADC)	adc_trigger_t(T_INIT)					//OPTION: trigger the ADC early, and start sampling before inititialisation.
+
+#if(OPT_PREORIGIN)	pre_origin()						//OPTION: never clock onto the array
+#ifnot(OPT_PREORIGIN)   origin()						//[Correct behaviour: clock onto the array]
+
+			move_by_calculated_steps (CLOCK_CALC_STEPS)
+
+#ifnot(OPT_EARLYADC)    adc_trigger_t(T_INIT)					//enable ADC and start sampling.
+
+			read_enable_t(T_RENABLED)				//enable the read source follower.
+
+lpstart: 		__loop 3
+#if(OPT_LOOPBACK) 	toggle_loopback()
+			reset_for(T_RESET)					//reset + integrate
+
+#if(OPT_LOOPBACK) 	toggle_loopback()
+			sleep (T_EXPOSE)
+			__endloop lpstart					//repeat that.
+
+			stop - - - 						//end.

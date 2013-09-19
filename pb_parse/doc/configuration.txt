@@ -1,0 +1,5 @@
+The configuration of the pulseblaster is defined in pb_print_config (part of pb_utils, which contains pulseblaster.h.) 
+A copy of that file is distributed with pb_parse, as doc/pulseblaster_h.txt (though this may not be correct for the hardware in use).
+That file is well commented; look there!
+
+The additional configuration specific to the parser is defined within the "Configuration Section" inside pb_parse. 

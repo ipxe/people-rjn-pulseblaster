@@ -1,0 +1,71 @@
+/*This is a test of the zeroloop DWIM.*/
+/* Amazingly, this actually does what it is supposed to, despite being deeply perverse */
+/* Simulate with "-s -p -u25" */
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		0x1		cont - 100000
+
+lbl1:	__LOOP	0			//First loop. This is a single zeroloop, and ought to skip to cont 0x12
+		0x10 		cont - 100
+		0x11 		cont - 100
+	__ENDLOOP lbl1 
+	
+		0x12		cont - 100
+
+lbl2:	__LOOP	2			//Second loop - this should loop normally x 2.		
+		0x20 		cont - 100
+		0x21 		cont - 100
+	__ENDLOOP lbl2
+	
+		0x22		cont - 100
+		
+
+lbl3:	__LOOP	0			//Third loop. Two ALMOST ajdacent zeroloops, should NOT get merged.
+		0x30 		cont - 100
+		0x31 		cont - 100
+	__ENDLOOP lbl3 
+	
+		0x32		cont - 100
+
+lbl4:	__LOOP	0			//Fourth loop. Shouldn't merge with 3rd, because of the CONT between them.
+		0x40 		cont - 100
+		0x41 		cont - 100
+	__ENDLOOP lbl4
+	
+		0x42		cont - 100
+		
+		
+lbl5:	__LOOP	0			//Fifth loop. Should jump right over the 6th one (both are zeroloops) landing on CONT 0x62.
+		0x50 		cont - 100
+		
+		0x96		goto lbl5a    100   //skip...
+lbl_stupid:	0x97		longdelay 97  100	//Yes, there is embedded code here that is skipped within the loop
+lbls2:  __LOOP  3					//but called from outside it. This is a very silly thing to do, but it still works!  
+		0xff  		cont - 100		//even loops are allowed in here!
+		0xfe  		cont - 100		//without being broken by the zeroloop parser.
+	__ENDLOOP lbls2					//(really, this should be a "come from")
+		0x98		goto  lbl_end 100 	//
+lbl5a:		0x99		cont   -      100   //...to here.
+		
+		0x51 		cont - 100
+	__ENDLOOP lbl5 
+	
+	
+lbl6:	__LOOP	0			//Sixth loop - this should also be skipped with loop 5.		
+		0x60 		cont - 100
+		0x61 		cont - 100
+	__ENDLOOP lbl6
+	
+		0x62		cont - 100
+				
+							
+					//While we're at it, test "Never" and "debug"
+		0x71 		goto  lbl_debug  100	
+		0x72		never -  100	
+lbl_debug:	0x73		debug -  100	
+
+					//And now do something really stupid, just to show we can.
+		0x74		goto  lbl_stupid  100
+					
+lbl_end:	0x75		goto  start 100	//Go back to start (keep simulation happy).

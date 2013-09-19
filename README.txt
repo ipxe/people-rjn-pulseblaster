@@ -17,13 +17,15 @@ pb_utils/
 	C programs to control the pulseblaster, assemble VLIW files, and load the binary file.
 	Also contains some examples of the VLIW format.
 
-See also pb_parse: a higher-level parser/compiler, distributed separately.
+pb_parse/
+	A high-level parser/compiler, which converts PBSRC to VLIW. It can also emulate missing features,
+	simulate the hardware, and prove whether programs are valid.
 
 
 SUPPORTED DEVICES
 -----------------
 
-This supports the PulseBlaster SP1 PB24-100-32k board, with PCI vendor/device id:  0x10e8:0x5920.
+The driver supports the PulseBlaster SP1 PB24-100-32k board, with PCI vendor/device id:  0x10e8:0x5920.
 
 The newer SP2 boards have the same vendor id (0x10e8) and device IDs of (0x8879 or 0x8852)  - both being functionally identical
 It is probably sufficient to add them to pulseblaster.c -> pb_pci_tbl and the driver will then work, if the protocol is the same.
@@ -85,7 +87,7 @@ pb_asm converts .vliw to .bin
 
 pb_prog loads the bin file to the device (it will automatically assemble .vliw if needed)
 
-pb_parse compiles .pbsrc to .vliw   [this is packaged and distributed separately]
+pb_parse compiles .pbsrc to .vliw
 
 
 UTILITIES
@@ -103,6 +105,9 @@ For debugging, use:
 	  pb_freq_gen.sh					- generate a square wave of a desired frequency on selected bits.
 	  pb_manual						- manually, interactively, control the pulseblaster outputs. This is actually quite useful!
 	  
+
+pb_parse/ is the parser/simulator/compiler. It allows a much higher-level language, and is described in its own README.txt.
+
 
 HARDWARE TWEAKS
 ---------------
@@ -132,5 +137,4 @@ SEE ALSO
 
 This was written as part of my PhD InfraRed Camera system: http://www.richardneill.org/phd
 There is a GIT tree at: http://git.ipxe.org/people/rjn/pulseblaster.git
-There is also a parser, pb_parse in a parallel project.
 

@@ -1,0 +1,123 @@
+/* This is a program to read a full frame from the Hawaii sensor. It might or might not work on the real array... */
+/* From a pulseblaster perspective, it works. It probably doesn't apply to the current array wiring configuration. */
+
+
+//LABEL:		OUTPUT					OPCODE		ARG		LENGTH		//comment
+
+			0b_0001_1000_1100_0110_0011_0001	CONT		-		1us		//Initialise in defaults.
+
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		1us		//Take Read high
+
+			0b_1001_1100_1110_0111_0011_0000	CONT		-		1ms		//Take Fsync low, then high.
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+
+			0b_1000_1100_0110_0011_0001_0001	CONT		-		10		//Take Lsync low, then high
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+
+
+label_outer1:		0b_1001_1100_1110_0111_0011_0001	LOOP		256		1us		//BEGIN LOOP (256)
+
+			0b_1001_0100_1010_0101_0010_0001	CONT		-		1us		//Take Reset low, then high.
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		1us		//Rising edge on Line
+
+			0b_1011_0101_1010_1101_0111_0001	CONT		-		1us		//Take Reset low, then high.
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		10
+
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		1us		//Falling edge on Line
+
+			0b_1001_1100_1110_0111_0011_0001	ENDLOOP		label_outer1	10		//END LOOP.
+
+
+//Array is now fully reset at this point.
+
+
+
+//WAIT some time for integration. THIS TIME MAY NEED TO CHANGE.
+
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10ms		//WAIT some time.
+
+
+
+//Now, read out the array.
+
+			0b_1001_1100_1110_0111_0011_0000	CONT		-		1ms		//Take Fsync low, then high.
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10		
+
+
+label_outer2:		0b_1001_1100_1110_0111_0011_0001	LOOP		256		1us		//BEGIN OUTER LOOP (256)
+
+			0b_1000_1100_0110_0011_0001_0001	CONT		-		1us		//Take Lsync low, then high
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+
+
+label_inner2a:		0b_1001_1100_1110_0111_0011_0001	LOOP		256		1us		//BEGIN LOOP (256)
+
+			0b_1101_1110_1111_0111_1011_0001	CONT		-		1us		//Rising edge on Pixel
+
+//GET DATA
+			0b_1101_1110_1111_0111_1011_1001	CONT		-		1us		//Short pulse on ADC_RESET
+			0b_1101_1110_1111_0111_1011_0001	CONT		-		10
+			0b_1101_1110_1111_0111_1011_0101	CONT		-		1us		//Short pulse on ADC_SH
+			0b_1101_1110_1111_0111_1011_0001	CONT		-		10
+			0b_1101_1110_1111_0111_1011_0011	CONT		-		1us		//Short pulse on ADC_Trig
+			0b_1101_1110_1111_0111_1011_0001	CONT		-		10
+
+
+
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		1us		//Falling edge on Pixel
+
+//GET DATA
+			0b_1001_1100_1110_0111_0011_1001	CONT		-		1us		//Short pulse on ADC_RESET
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+			0b_1001_1100_1110_0111_0011_0101	CONT		-		1us		//Short pulse on ADC_SH
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+			0b_1001_1100_1110_0111_0011_0011	CONT		-		1us		//Short pulse on ADC_Trig
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		10
+
+
+			0b_1001_1100_1110_0111_0011_0001	ENDLOOP		label_inner2a	1us		//END LOOP.
+
+
+
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		1us		//Rising edge on Line
+
+			0b_1010_1101_0110_1011_0101_0001	CONT		-		1us		//Take Lsync low, then high
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		10
+
+
+label_inner2b:		0b_1011_1101_1110_1111_0111_0001	LOOP		256		1us		//BEGIN LOOP (256)
+
+			0b_1111_1111_1111_1111_1111_0001	CONT		-		1us		//Rising edge on Pixel
+
+//GET DATA
+			0b_1111_1111_1111_1111_1111_1001	CONT		-		1us		//Short pulse on ADC_RESET
+			0b_1111_1111_1111_1111_1111_0001	CONT		-		10
+			0b_1111_1111_1111_1111_1111_0101	CONT		-		1us		//Short pulse on ADC_SH
+			0b_1111_1111_1111_1111_1111_0001	CONT		-		10
+			0b_1111_1111_1111_1111_1111_0011	CONT		-		1us		//Short pulse on ADC_Trig
+			0b_1111_1111_1111_1111_1111_0001	CONT		-		10
+
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		1us		//Falling edge on Pixel
+
+//GET DATA
+			0b_1011_1101_1110_1111_0111_1001	CONT		-		1us		//Short pulse on ADC_RESET
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		10
+			0b_1011_1101_1110_1111_0111_0101	CONT		-		1us		//Short pulse on ADC_SH
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		10
+			0b_1011_1101_1110_1111_0111_0011	CONT		-		1us		//Short pulse on ADC_Trig
+			0b_1011_1101_1110_1111_0111_0001	CONT		-		10
+
+			0b_1011_1101_1110_1111_0111_0001	ENDLOOP		label_inner2b	1us		//END LOOP.
+
+
+			0b_1001_1100_1110_0111_0011_0001	CONT		-		1us		//Falling edge on Line
+
+
+			0b_1001_1100_1110_0111_0011_0001	ENDLOOP		label_outer2	1us		//END OUTER LOOP (256)
+
+
+//We're done. Stop.
+			0b_0001_1000_1100_0110_0011_0001	STOP		-		-		//Stop. (back to defaults)
+

@@ -1,0 +1,67 @@
+/* This is a test of same values. Every line is expressed in a different way, but ought to evaluate to the same vliw instruction.
+   This program is a test of the compiler - read the vliw file. Don't bother executing the result.
+
+   Every line should compile to the VLIW line:
+	0x123456	cont	-	0x23c34600
+   and there should be exactly 17 of them.
+
+   Note that this WILL emit warnings and will fail if simulated (it falls off the end)
+
+   Must invoke pb_parse with -X  (to make the execinc work) and -Dsixk=6000   
+   MAY add -Dsix_opt=6 (but the #default: will also be allowed)
+
+*/
+
+#hwassert PB_TICK_NS  10
+
+#define theoutput	0x123456
+#define lsb    		56
+#define the_time	600000000
+#define cont_dash	cont -
+#define X  		600
+#define Y  		100
+#define P  		0x765432
+#define Q  		#default:0x123457	//For demo, don't use -D here, let the #default handle it.
+#define sixk 		#what			//Call this with -Dsixk=6000
+#define six_opt		#default:6		//Optionally, use -Dsix_opt=6, or it defaults to 6 anyway.
+
+#execinc "/bin/echo"  #define dash  -		//Trivial #execinc, returns '#define dash -'
+
+#echo	Every line should compile to 0x123456  cont - 600000000 .
+
+#macro same_as_usual($out,$len,$opcode){
+	$out	$opcode		-	$len		//Note: ARG is '-'; don't use with opcodes that expect one.
+	#assert  $out == 0x123456
+}
+
+
+//LABEL:	OUTPUT					OPCODE			ARG		LENGTH			//comment
+
+		0x123456				cont			-		600000000		//Basic
+		0X12_34_56				continue		0		600000000_ticks		//Format change. Arg = 0 (causes warning). 0X and 0x both valid prefixes.
+		theoutput				CoNTINue		-		the_time		//Case-insens. substitute #define
+		0x1234{lsb}				longdelay		auto		6000_000_000_ns		//substitute #define in {}. Longdelay auto. Length in units.
+		119304+6				cont			-		6000000_us		//length in units. Decimal output
+		0b100100011010001010110			cont			-		{sixk}_ms		//binary, use a '-D' #define.
+		0b0001_0010__0011_0100__0101_0110	cont			-		{six_opt}_s		//binary, spaced. Optional -D #default.
+		same					cont_dash				4s+(4*0.5s)		//same, define with spaces,  formula
+		bitset(0x00)				cont			-		0.1_min			//bit operators. fractional minutes
+		bitxnor(0xffffff)			longdelay		1		6_s			//demoted longdelay
+		bit_add(0x10),bit_sub(0x10)		cont			-		0x1770_ms		//2 bit operators. Hex with units.
+		bit_rrf(0x8>>2),bitrlf(2)		cont			-		0.001666666667_hour	//fractional hour (rounded)
+		same_as_usual (0x123456, 6_s, continue)									//macro interpolation
+		same_as_usual(0x123456, the_time*1, continue)								//macro with times and spaces.
+		@same					6_s			cont		-			//vliw reordering, squelch spurious error.
+		cont					-			same		6_Ms/1000000		//vliw reordering. Megaseconds
+		(Y>=X)?P:(Q-1)				cont			dash		(X!=Y)?({X}_s/100):{Y}_s //Using ternary and comparison expressions.
+#if(USE_SIX)    0x123456				cont			-		600000000		//Use -DUSE_SIX to enable this.
+#if(USE_SEVEN)  0x123457				cont			-		700000000		//Use -DnoUSE_SEVEN to disable this.
+#ifnot(USE_SIX) 0x123458				cont			-		600000000		//Use -DUSE_SIX to disable this.
+
+//		100					cont			-		100			//Commented out. Doesn't do anything!
+/*
+		200					cont			-		200			//Commented out, multiline comment.
+		300					cont			-		300
+*/
+
+

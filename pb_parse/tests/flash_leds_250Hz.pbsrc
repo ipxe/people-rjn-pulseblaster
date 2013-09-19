@@ -1,0 +1,15 @@
+//Alternately flash the LEDs at 250 Hz.  Useful for pb_parport-output
+
+//Definitions:
+
+#define		T	2ms
+
+#define 	Group1	0x55_55_55
+#define		Group2	0xAA_AA_AA
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		Group1		cont		-		T
+		Group2		GOTO		start		T
+

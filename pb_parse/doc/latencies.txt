@@ -1,0 +1,13 @@
+The pulseblaster hardware has some inherent latencies. The parser abstracts these away, therefore, the user need only care that:
+
+	1)All LENGTHs should be specified as they are actually wanted.
+		Example: specify a 100ns pulse, and get 100ns.
+
+	2)If a desired length is too short for the hardware, the parser will pick it up and throw an error:
+		Example: specify a 50ns pulse, and get an error message:    "Fatal Error: delay length '0x5' is too small..."
+
+
+The actual subtraction is done *after* the parser stage, by pb_prog, in function pb_write_vliw().
+The values are defined in ../../pb_utils/pulseblaster.h, via pb_print_config
+For more details, read ../../pb_utils/doc/latencies.txt . But you really don't need to care!
+

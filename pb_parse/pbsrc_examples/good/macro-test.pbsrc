@@ -1,0 +1,31 @@
+/* This is a test of macros */
+
+#define  BIT_7 0x80		//Used in macros. The other BIT definitions are omitted for brevity.
+#define  BIT_8 0x100
+
+
+//Macro definition: flash LED x, n times (on then off), at half-period t.
+
+#macro flash ($x, $n, $t){
+	//Note that the use of bit_ instructions refers always to the previous value, this is deliberate.
+	lp1:	bit_set($x)				loop		$n		$t
+		do_nothing ()
+#if ($n%2)      #echo it is even.		  //conditionals are allowed here!
+		bit_clear($x)				endloop		lp1		$t
+}
+
+#macro do_nothing (){}  	//Trivial macro, demonstrating macro nesting.
+
+
+//Main code starts here.
+
+//LABEL:	OUTPUT				OPCODE		ARG		LENGTH			//comment
+		
+start:		0x01				cont		-		1s			//LED_0 on  1 sec
+
+		flash (BIT_7, 3, 100ms)									//Flash bit 7, 3 times, at 100ms (per half cycle)
+
+		flash (BIT_8, 4, 200ms)									//Flash bit 8, 4 times, at 200ms (per half cycle)
+		
+		0xffff				goto		start		2s			//All LEDs on 2 secs, then repeat.
+

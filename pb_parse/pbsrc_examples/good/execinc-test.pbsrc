@@ -1,0 +1,12 @@
+//Test of execinc.
+
+#define   A	10
+#define   B 	20
+#define   C	30
+
+#execinc  "execinc-test.php"	A	B+C	//This should output definitions for D and E
+
+#echo    _D is D and _E is E.
+
+
+0x00	cont	-	D+E

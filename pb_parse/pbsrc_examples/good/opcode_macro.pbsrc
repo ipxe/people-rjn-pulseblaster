@@ -1,0 +1,36 @@
+/*This is a test of the opcode macros. */
+/* For clarity, each macro is written next to the cont-line with which it merges. */
+
+/*
+       MACRO			Merges with			Label needed?
+    ---------------		------------------              -------------
+    __CALL     addr		Previous   CONT -		no
+    __GOTO     addr		Previous   CONT -		no
+    __RETURN   			Previous   CONT -		no
+    __LOOP     n		Subsequent CONT -		required
+    __ENDLOOP  addr		Previous   CONT -		no
+
+*/
+
+
+//LABEL:	OUTPUT		OPCODE		ARG		LENGTH		//comment
+
+start:		0x1		cont 		-		100		//simple
+
+lbl_x:	__loop 2
+		0x2		cont	 	- 		100		//Note: at least 2 instructions are required "inside" the loop.
+										//one for each end's merge.
+		0x3		cont 		- 		100		//Debug and mark are also allowed (as cont synonyms)
+	__endloop lbl_x	
+		
+		
+		0x4		cont 		- 		100
+	__call  lbl_call
+	
+		0x5		continue	-		 100		//synonym cont/continue..
+	__goto		start
+		
+		
+		
+lbl_call:  	0x6		cont 		-		 100
+	__return
