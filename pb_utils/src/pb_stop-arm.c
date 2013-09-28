@@ -1,6 +1,8 @@
-/*  This is pb_stop-arm.c  It stops the pulseblaster and re-arms it to restart
- *  It's exactly the same as pb_stop;pb_arm,  indeed, it's the same as just doing pb_arm (which implicitly stops the PB first). Pure syntactic sugar ;-)
- *  Most of the important, shared stuff is in pb_functions.c */
+/* This is pb_stop-arm.c  It stops the pulseblaster and re-arms it to restart
+ * It's exactly the same as pb_stop;pb_arm,  indeed, it's the same as just doing pb_arm (which implicitly stops the PB first). Pure syntactic sugar ;-)
+ * Most of the important, shared stuff is in pb_functions.c
+ * This is Free Software, released under the GNU GPL, version 3 or later.
+ */
 
 #include "pb_functions.c"
 

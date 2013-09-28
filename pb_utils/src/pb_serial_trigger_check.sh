@@ -1,6 +1,7 @@
 #!/bin/bash
 #Check for whether the PB serial trigger adapter is physically present, as expected.
 #This is a trivial wrapper around pb_serial_trigger, used for consistency with pb_check etc.
+#This is Free Software, released under the GNU GPL, version 3 or later.
 
 CMD="pb_serial_trigger -c"
 

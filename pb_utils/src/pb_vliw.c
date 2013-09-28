@@ -1,5 +1,7 @@
 /* This is pb_vliw.c  It prints a short example VLIW program, with comments
- * Most of the important, shared stuff is in pb_functions.c */
+ * Most of the important, shared stuff is in pb_functions.c
+ * This is Free Software, released under the GNU GPL, version 3 or later.
+ */
 
 #include "pb_functions.c"
 

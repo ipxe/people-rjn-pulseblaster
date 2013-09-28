@@ -1,6 +1,11 @@
 #!/bin/bash
 #Manual control of the PulseBlaster from the terminal.
-#Copyright 2013 Richard Neill <pulseblaster at richardneill dot org>. This is Free Software, Licensed under the GNU GPL v3+.
+
+#Copyright (C) Richard Neill 2013, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+#redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+#either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+#For the details, please see: http://www.gnu.org/licenses/gpl.html
+
 #Todo: once we are sure we no longer need to support Bash version 3, use "read -i initial_text" for the prompt, and use ${x,,} and ${x^^} instead of lots of 'tr'
 
 #Configuration.

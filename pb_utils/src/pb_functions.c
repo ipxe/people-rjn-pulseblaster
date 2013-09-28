@@ -3,7 +3,8 @@
  * This userspace version pairs with the Linux 2.6 kernel driver, which has /sys/class/pulseblaster.
  * [It differs from the more complex earlier version which used the 2.4 kernel driver, and had to 'bit-bang' the interface]
  * Most functions here will exit with an error-code, rather than return, since any error here is fatal.
-*/
+ * This is Free Software, released under the GNU GPL, version 3 or later.
+ */
 
 #include <stdio.h>
 #include <sys/stat.h>

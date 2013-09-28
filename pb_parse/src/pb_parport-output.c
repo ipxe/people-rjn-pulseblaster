@@ -1,22 +1,25 @@
+/* Output data to the parallel port(s), directly (i.e. bit-banging mode) without any form of handshaking.
+ * Recent Linuxes (> 2.4) use ioctl, described at:  http://people.redhat.com/twaugh/parport/html/x623.html
+ * which is much better than the old way using ioperm() and outb(). Also, this code needn't be run as root.
+ * Note that only physical "legacy" parallel ports will necessarily work this way; USB parport adapters usually won't:
+ * it depends on the specific chipset, but even those that support bit-banging will be seriously limited in speed.
+ * See also: doc/parport-output.txt  */
+
+/* Copyright (C) Richard Neill 2011, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+ * redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+ * For the details, please see: http://www.gnu.org/licenses/gpl.html  */
+
 /*
-Output data to the parallel port(s), directly (i.e. bit-banging mode) without any form of handshaking.
-Recent linuxes (> 2.4) use ioctl, described at:  http://people.redhat.com/twaugh/parport/html/x623.html
-which is much better than the old way using ioperm() and outb(). Also, this code needn't be run as root.
-Note that only physical "legacy" parallel ports will necessarily work this way; USB parport adapters usually won't:
-it depends on the specific chipset, but even those that support bit-banging will be seriously limited in speed.
-See also: doc/parport-output.txt
-Copyright Richard Neill, 2011. This is Free Software, licensed under the GNU GPL version 3+.
-
-TODO: Performance measured at 400k writes/sec with one physical parport. If more ports are wanted, this could
-be improved by triggering the 3 PPWDATA ioctls in parallel (how?). Might also want to use the Strobe lines somehow
-to improve sync across all ports.
-
-For a pretty display, slowed down for human-readable speed.
- 1. Have /dev/parport0
- 2. turn on DEBUG below.
- 3. gcc -Wall -Wextra -Werror  -o pb_parport-output pb_parport-output.c
- 4. In one shell:  mkfifo myfifo; { for ((i=0;i<1000;i++)); do echo  $i; done ;} > myfifo
- 5. In another shell:  ./pb_parport-output myfifo
+ * TODO: Performance measured at 400k writes/sec with one physical parport. If more ports are wanted, this could be improved by 
+ * triggering the 3 PPWDATA ioctls in parallel (how?). Might also want to use the Strobe lines somehow to improve sync across all ports.
+ *
+ *  For a pretty display, slowed down for human-readable speed.
+ *   1. Have /dev/parport0
+ *   2. turn on DEBUG below.
+ *   3. gcc -Wall -Wextra -Werror  -o pb_parport-output pb_parport-output.c
+ *   4. In one shell:  mkfifo myfifo; { for ((i=0;i<1000;i++)); do echo  $i; done ;} > myfifo
+ *   5. In another shell:  ./pb_parport-output myfifo
 */
 
 #include <stdio.h>

@@ -1,5 +1,6 @@
 /* This is pb_arm.c  It arms the already-programmed pulseblaster. *
- *  Most of the important, shared stuff is in pb_functions.c */
+ * Most of the important, shared stuff is in pb_functions.c 
+ * This is Free Software, released under the GNU GPL v3+ */
 
 #include "pb_functions.c"
 

@@ -1,6 +1,11 @@
 #!/bin/bash
 #This loads the PulseBlaster with a simple program to output a specified frequency on a particular BIT or BITS.
 
+#Copyright (C) Richard Neill 201q, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+#redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+#either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+#For the details, please see: http://www.gnu.org/licenses/gpl.html
+
 TICK_NS=10			#Number of ns per pulseblaster tick (varies for pulseblaster model).
 PB_MIN_TICKS=9			#Pulseblaster minimum instruction length.
 PB_INIT=pb_init			#Pulseblaster initialisation program

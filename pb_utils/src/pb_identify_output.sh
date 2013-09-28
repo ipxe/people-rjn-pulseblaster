@@ -1,5 +1,5 @@
 #!/bin/bash
-#Copyright Richard Neill, 2011. Free software, licensed	under GNU GPL version 3	or later.
+#Copyright (C) 2012 Richard Neill <pulseblaster at REMOVE.ME.richardneill.org>. This is Free Software, released under the GNU GPL v3+
 
 #Quick test script to make the pulseblaster flash a specific outputs at 2Hz.
 #Useful to identify which wire connects to what.

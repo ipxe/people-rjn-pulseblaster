@@ -2,7 +2,9 @@
  * Very old ISA models used to support explicit setting of the Flags output, but this feature isn't present on PCI PulseBlasters
  * Programming a PB doesn't change the output states, so it's OK to pb_init() and then pb_prog().
  * pb_zero is a special case of this, so it #define's pb_zero, then includes this file.
- * Most of the important, shared stuff is in pb_functions.c */
+ * Most of the important, shared stuff is in pb_functions.c 
+ * This is Free Software, released under the GNU GPL, version 3 or later.
+ */
 
 #include "pb_functions.c"
 

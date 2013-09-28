@@ -2,7 +2,9 @@
  * Parse it and then program the device. If the Program file is a .bin file, it will just write it to the device.
  * If saving (rather than programming) the .bin file is desired, use pb_asm (which is a special case of this file)
  * Invoke it as pb_prog FILENAME.vliw   or pb_prog FILENAME.bin.
- * Most of the important, shared stuff is in pb_functions.c */
+ * Most of the important, shared stuff is in pb_functions.c 
+ * This is Free Software, released under the GNU GPL, version 3 or later.
+ */
 
 #include "pb_functions.c"
 

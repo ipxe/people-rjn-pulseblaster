@@ -1,5 +1,6 @@
 #!/bin/bash
 #Check for whether PulseBlaster PCI card is physically present.
+#This is Free Software, released under the GNU GPL, version 3 or later.
 
 #We have an SP1 board.
 SP1_ID=0x5920

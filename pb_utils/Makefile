@@ -81,6 +81,7 @@ clean:
 	rm -f src/pb_start
 	rm -f src/pb_stop
 	rm -f src/pb_arm 
+	rm -f src/pb_stop-arm 
 	rm -f src/pb_cont
 	rm -f src/pb_init
 	rm -f src/pb_zero

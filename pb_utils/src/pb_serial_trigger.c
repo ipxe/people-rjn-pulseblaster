@@ -1,8 +1,13 @@
 /* Serial port remote trigger for pulseblaster: Use the serial port DTR line to trigger the PB's hardware trigger input.
  * This is better than the software trigger if there is a gate (D-type) in the signal path way, as it allows for synchronisation 
- * Copyright Richard Neill, 2012; This is Free Software, licensed under the GNU GPL v3+.  
+ *
+ * Copyright (C) Richard Neill 2012, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+ * redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+ * For the details, please see: http://www.gnu.org/licenses/gpl.html
+ *
  * This is inspired by the "sled" serial led program by Guido Socher which is itself GPL.
- * For hardware circuit, see the help text.
+ * For the hardware circuit, see the help text.
  */
 
 #include <stdio.h>

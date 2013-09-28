@@ -1,14 +1,16 @@
 #!/usr/bin/php -ddisplay_errors=E_ALL
 <?
 
-/* This parser converts a pulseblaster command file to a series of VLIW opcodes.		*
+/* This parser converts a PulseBlaster command file to a series of VLIW opcodes.		*
  * The input .pbsrc file is written in a flexible, human-readable way.				*
  * The output .vliw file is ready to be used by pb_asm/pb_prog.					*
- * A pulseblaster is a digital timing card, made by www.spincore.com				*
- * See also $USAGE below. 		 							*
- * Copright by Richard Neill <pulseblaster at richardneill.org> 2004-2013.			*
- * Download from http://www.richardneill.org/source   Feedback/bug reports very welcome.	*
- * This is Free Software, released under GNU GPL v3 or later: http://gnu.org/copyleft/gpl.html 	*/
+ * A PulseBlaster is a digital timing card, manufactured by Spincore, www.spincore.com 		*
+ * Download from http://www.richardneill.org/source   Feedback/bug reports very welcome.	*/
+
+/* Copyright (C) Richard Neill 2014-2013, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+ * redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+ * For the details, please see: http://www.gnu.org/licenses/gpl.html  */
 
 $VERSION="2.85";
 $RELEASE_DATE="2013-09-17";
