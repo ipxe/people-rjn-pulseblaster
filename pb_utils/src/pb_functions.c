@@ -3,7 +3,11 @@
  * This userspace version pairs with the Linux 2.6 kernel driver, which has /sys/class/pulseblaster.
  * [It differs from the more complex earlier version which used the 2.4 kernel driver, and had to 'bit-bang' the interface]
  * Most functions here will exit with an error-code, rather than return, since any error here is fatal.
- * This is Free Software, released under the GNU GPL, version 3 or later.
+
+ * Copyright (C) Richard Neill 2004-2013, <pulseblaster at REMOVE.ME.richardneill.org>. This program is Free Software. You can
+ * redistribute and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation,
+ * either version 3 of the License, or (at your option) any later version. There is NO WARRANTY, neither express nor implied.
+ * For the details, please see: http://www.gnu.org/licenses/gpl.html
  */
 
 #include <stdio.h>
