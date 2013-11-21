@@ -17,6 +17,7 @@ pb_utils/src/pb_prog
 pb_utils/src/pb_serial_trigger
 pb_utils/src/pb_start
 pb_utils/src/pb_stop
+pb_utils/src/pb_stop-arm
 pb_utils/src/pb_vliw
 pb_utils/src/pb_zero
 pb_parse/src/pb_parport-output
