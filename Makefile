@@ -6,6 +6,7 @@ MANDIR      = $(DATAROOTDIR)/man
 MAN1DIR     = $(MANDIR)/man1
 
 WWW_DIR     = pulseblaster
+WWW_SERV    = www:public_html/src/
 
 all ::	compile
 
@@ -24,7 +25,6 @@ install:
 	install  -m644 README.txt LICENSE.txt index.html $(DOCDIR)
 	install  -m644 man/*.1.bz2                       $(MAN1DIR)
 
-.PHONY: www
 www:
 	rm -rf   www .www
 	mkdir -p .www/$(WWW_DIR)/$(WWW_DIR)
@@ -50,6 +50,11 @@ www:
 	rm -rf   www/$(WWW_DIR)/$(WWW_DIR)
 	cp       index.html README.txt www/$(WWW_DIR)/
 	@echo "Now, upload www/$(WWW_DIR)/ and link to www/$(WWW_DIR)/index.html"
+
+.PHONY: wwwpublish
+wwwpublish: www
+	@echo "Uploading to web for publication..."
+	scp -r www/$(WWW_DIR)/  $(WWW_SERV)
 
 clean:
 	make -C driver clean
